@@ -1,4 +1,4 @@
-# PROJECT STRUCTURE
+# PROJECT STRUCTURE yozildi
 
 ```txt id="s2n8k4"
 apps/

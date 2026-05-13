@@ -1,3 +1,91 @@
-from django.shortcuts import render
+from rest_framework.views import APIView
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializers import SignUpSerializer, MyTokenObtainPairSerializer,CustomUserSerializer
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from .models import CustomUser
+from rest_framework.generics import UpdateAPIView
+from .permissions import IsProfileOwner
 
-# Create your views here.
+class SignUpView(APIView):
+    parser_classes = (JSONParser, MultiPartParser, FormParser)
+
+    def post(self, request):
+
+        serializer = SignUpSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            refresh = RefreshToken.for_user(user)
+            print(user)
+            return Response({
+                "user": serializer.data,
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MyTokenObtainPairView(TokenObtainPairView):
+    serializer_class = MyTokenObtainPairSerializer
+
+class MyProfileView(APIView):
+    permission_classes = [IsProfileOwner]
+
+    def get(self, request):
+        if request.user.is_authenticated:
+            user = get_object_or_404(CustomUser,pk=request.user.pk)
+            serializer = CustomUserSerializer(user)
+
+            return Response(
+                {
+                    "data": serializer.data
+                }
+            )
+
+class ProfileUpdateView(APIView):
+    permission_classes = [IsProfileOwner]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def put(self, request):
+        user = get_object_or_404(CustomUser,pk=request.user.pk)
+        serializer = CustomUserSerializer(data=request.data,instance=user)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "status": status.HTTP_200_OK,
+                "message": "Profil yangilandi",
+                "data": serializer.data
+            })
+
+        return Response({
+            "errors": serializer.errors
+        })
+
+    def patch(self, request):
+        user = get_object_or_404(CustomUser,pk=request.user.pk)
+        serializer = CustomUserSerializer(data=request.data,instance=user,partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "status": status.HTTP_200_OK,
+                "message": "Profil qisman yangilandi",
+                "data": serializer.data
+            })
+
+        return Response({
+            "errors": serializer.errors
+        })
+
+class ProfileDeleteView(APIView):
+    permission_classes = [IsProfileOwner]
+    def delete(self, request):
+        user = get_object_or_404(CustomUser, pk=request.user.pk)
+        user.delete()
+        return Response({
+            "status": status.HTTP_204_NO_CONTENT,
+            'message':"Akkaunt o'chirildi",
+        })

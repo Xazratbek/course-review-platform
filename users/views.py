@@ -7,11 +7,10 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import SignUpSerializer, MyTokenObtainPairSerializer,CustomUserSerializer
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import CustomUser
-from rest_framework.generics import UpdateAPIView
 from .permissions import IsProfileOwner
 
 class SignUpView(APIView):
-    parser_classes = (JSONParser, MultiPartParser, FormParser)
+    parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request):
 
@@ -19,12 +18,12 @@ class SignUpView(APIView):
         if serializer.is_valid():
             user = serializer.save()
             refresh = RefreshToken.for_user(user)
-            print(user)
             return Response({
                 "user": serializer.data,
                 "refresh": str(refresh),
                 "access": str(refresh.access_token),
             }, status=status.HTTP_201_CREATED)
+
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -42,15 +41,18 @@ class MyProfileView(APIView):
 
             return Response(
                 {
+                    "status":status.HTTP_200_OK,
                     "data": serializer.data
-                }
+                },
+                status=status.HTTP_200_OK
             )
 
 class ProfileUpdateView(APIView):
     permission_classes = [IsProfileOwner]
-    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    parser_classes = [MultiPartParser, FormParser]
 
     def put(self, request):
+        print(request.user.pk)
         user = get_object_or_404(CustomUser,pk=request.user.pk)
         serializer = CustomUserSerializer(data=request.data,instance=user)
         if serializer.is_valid():
@@ -66,6 +68,7 @@ class ProfileUpdateView(APIView):
         })
 
     def patch(self, request):
+        print(request.user.pk)
         user = get_object_or_404(CustomUser,pk=request.user.pk)
         serializer = CustomUserSerializer(data=request.data,instance=user,partial=True)
         if serializer.is_valid():

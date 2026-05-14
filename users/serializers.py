@@ -11,7 +11,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
         read_only_fields = ['email','username']
 
 class SignUpSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
+    # password = serializers.CharField(write_only=True)
     class Meta:
         model = CustomUser
         fields = ['username','email','password','bio','role','phone_number','avatar']

@@ -6,7 +6,7 @@ from .models import Category, CourseCenter, Mentor, Course, CourseTag, CourseTag
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ['name', 'slug', 'created_at']
     search_fields = ['name', 'slug']
-    readonly_fields = ['id', 'created_at', 'updated_at', 'slug']
+    readonly_fields = ['id', 'created_at', 'updated_at']
     prepopulated_fields = {'slug': ('name',)}
     ordering = ['-created_at']
 
@@ -107,6 +107,15 @@ class CourseTagAdmin(admin.ModelAdmin):
     search_fields = ['name', 'slug']
     readonly_fields = ['id', 'created_at', 'updated_at']
     prepopulated_fields = {'slug': ('name',)}
+    fieldsets = (
+        ('Tag Info', {
+            'fields': ('name', 'slug')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at', 'id'),
+            'classes': ('collapse',)
+        }),
+    )
     ordering = ['-created_at']
 
 

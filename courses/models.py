@@ -20,7 +20,7 @@ class LanguageChoices(models.TextChoices):
 class Category(BaseModel):
     name = models.CharField(max_length=120, unique=True)
     slug = models.SlugField(unique=True)
-    icon = models.ImageField(upload_to='category_icons/')
+    icon = models.ImageField(upload_to='category_icons/',null=True,blank=True)
 
     def __str__(self):
         return self.name
@@ -39,7 +39,7 @@ class CourseCenter(BaseModel):
     title = models.CharField(max_length=255)
     slug = models.SlugField(unique=True)
     description = models.TextField()
-    logo = models.ImageField(upload_to='course_center_logos/')
+    logo = models.ImageField(upload_to='course_center_logos/',null=True,blank=True)
     website = models.URLField(blank=True)
     telegram_url = models.URLField(blank=True)
     instagram_url = models.URLField(blank=True)
@@ -62,8 +62,8 @@ class CourseCenter(BaseModel):
 class Mentor(BaseModel):
     full_name = models.CharField(max_length=255)
     slug = models.SlugField(unique=True)
-    bio = models.TextField()
-    avatar = models.ImageField(upload_to='mentor_avatars/')
+    bio = models.TextField(null=True,blank=True)
+    avatar = models.ImageField(upload_to='mentor_avatars/',null=True,blank=True)
     experience = models.PositiveIntegerField()
     specialization = models.CharField(max_length=255)
     instagram_url = models.URLField(blank=True)
@@ -84,12 +84,11 @@ class Mentor(BaseModel):
             models.Index(fields=['specialization']),
         ]
 
-
 class Course(BaseModel):
     title = models.CharField(max_length=255)
     slug = models.SlugField(unique=True)
-    description = models.TextField()
-    thumbnail = models.ImageField(upload_to='course_thumbnails/')
+    description = models.TextField(error_messages={"blank": "Kurs haqida qisqacha ta'rif yozish majburiy"})
+    thumbnail = models.ImageField(upload_to='course_thumbnails/',blank=True,null=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='courses')
     mentor = models.ForeignKey(Mentor, on_delete=models.SET_NULL, null=True, blank=True, related_name='courses')
     course_center = models.ForeignKey(CourseCenter, on_delete=models.CASCADE, related_name='courses')
@@ -120,7 +119,6 @@ class Course(BaseModel):
             models.Index(fields=['price']),
             models.Index(fields=['created_at']),
         ]
-
 
 class CourseTag(BaseModel):
     name = models.CharField(max_length=100, unique=True)

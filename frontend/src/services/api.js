@@ -125,12 +125,43 @@ export async function login(credentials) {
   }
 }
 
-export async function signup(values) {
+export async function signup(values, options = {}) {
+  const { onProgress } = options;
   const formData = new FormData();
   Object.entries(values).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') formData.append(key, value);
   });
-  const payload = await request('/accounts/signup/', { method: 'POST', body: formData });
+
+  const payload = await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', joinUrl('/accounts/signup/'));
+    xhr.setRequestHeader('Accept', 'application/json');
+
+    xhr.upload.onprogress = (event) => {
+      if (!onProgress || !event.lengthComputable) return;
+      const percent = Math.round((event.loaded / event.total) * 100);
+      onProgress(percent);
+    };
+
+    xhr.onload = () => {
+      let result = null;
+      try {
+        result = JSON.parse(xhr.responseText || '{}');
+      } catch {
+        result = null;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress?.(100);
+        resolve(result);
+        return;
+      }
+      reject(new Error(result?.detail || result?.message || 'Signup failed'));
+    };
+
+    xhr.onerror = () => reject(new Error('Tarmoq xatosi'));
+    xhr.send(formData);
+  });
+
   const user = payload.user || decodeJwt(payload.access) || { username: values.username };
   setSession({ access: payload.access, refresh: payload.refresh, user });
   return user;
@@ -146,10 +177,13 @@ export function getStoredUser() {
 }
 
 export const api = {
+  getCategories: () => request('/course/categories/'),
   getCourses: (params) => request(`/course/${buildQuery(params)}`),
   getCourse: (slug) => request(`/course/${slug}/`),
   getCenters: (params) => request(`/course/centers/${buildQuery(params)}`),
+  getCenter: (slug) => request(`/course/centers/${slug}/`),
   getMentors: (params) => request(`/course/mentors/${buildQuery(params)}`),
+  getMentor: (slug) => request(`/course/mentors/${slug}/`),
   getTags: (params) => request(`/course/tags/${buildQuery(params)}`),
   getProfile: () => request('/accounts/my/profile/'),
   updateProfile: (formData) => request('/accounts/update/', { method: 'PATCH', body: formData }),

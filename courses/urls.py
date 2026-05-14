@@ -2,8 +2,9 @@ from django.urls import path
 from .views import *
 
 urlpatterns = [
+    path("categories/", CategoryListView.as_view(), name=""),
     path('centers/',CourseCenterListView.as_view(),name='course-center-list'),
-    path('centers/<str:slug>/',CourseCenterListView.as_view(),name='course-center-list'),
+    path('centers/<str:slug>/',CourseCenterRetrieveView.as_view(),name='course-center-list'),
 
 
     path('mentors/',MentorListView.as_view(),name='mentors-list'),

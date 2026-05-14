@@ -1,0 +1,60 @@
+PasswordChangeView - APIView yaxshi. Chunki custom logic bor: old password tekshirish, new password set qilish, set_password() chaqirish.
+PasswordChangeSerializer - old_password, new_password, confirm_password validate qiladi. ModelSerializer shart emas.
+ProfileUpdateSerializer - profile edit uchun alohida serializer yaxshi. username/email read-only, bio, phone_number, avatar, first_name, last_name editable.
+AvatarUploadView - optional. Agar alohida avatar endpoint xohlasang UpdateAPIView; aks holda ProfileUpdateView PATCH yetadi.
+AvatarUploadSerializer - optional. Faqat avatar validatsiyasi kerak bo‘lsa ishlatiladi.
+
+courses
+
+CategoryListView - ListAPIView. User categorylarni filter chip sifatida ko‘radi. Filter shart emas, search optional.
+CourseCenterRetrieveView - RetrieveAPIView. Hozir centers/<slug>/ noto‘g‘ri list viewga ulangan. Bitta center detail uchun kerak.
+CourseListSerializer - kurs kartalari uchun kam field: title, slug, thumbnail, price, rating, center, level.
+CourseDetailSerializer - detail page uchun to‘liq field: description, mentor, center, tags, duration, certificate.
+CategoryListSerializer - category chip uchun yengil serializer: id, name, slug, icon.
+
+reviews
+
+ReviewListByCourseView - ListAPIView. Course detail ichida approved reviewlar chiqadi.
+ReviewCreateView - CreateAPIView. User kursga review yozadi; user=request.user, course URL yoki bodydan olinadi.
+MyReviewListView - ListAPIView. User o‘z yozgan reviewlarini ko‘radi.
+ReviewUpdateDeleteView - RetrieveUpdateDestroyAPIView. Faqat review egasi edit/delete qiladi.
+ReviewVoteToggleView - APIView. Toggle logic bor: like bo‘lsa dislikega o‘zgartirish, bor bo‘lsa o‘chirish.
+ReviewMediaUploadView - CreateAPIView. Reviewga rasm upload.
+ReviewMediaDeleteView - DestroyAPIView. Faqat media egasi yoki review egasi o‘chiradi.
+CommentListCreateView - ListCreateAPIView. Review commentlarini ko‘rsatadi va yangi comment yaratadi.
+CommentReplyCreateView - CreateAPIView. Parent commentga reply yozadi.
+CommentUpdateDeleteView - RetrieveUpdateDestroyAPIView. User o‘z commentini edit/delete qiladi.
+ReviewCreateSerializer - create paytida rating/title/body/advantages/disadvantages validate.
+ReviewListSerializer - listda qisqa fieldlar, user mini info bilan.
+ReviewUpdateSerializer - faqat editable fieldlar.
+ReviewVoteSerializer - vote_type validate.
+ReviewMediaSerializer - image upload/list.
+CommentSerializer - comment va replies tree uchun.
+
+interactions
+
+FavoriteToggleView - APIView. Toggle logic bor: mavjud bo‘lsa delete, yo‘q bo‘lsa create.
+FavoriteListView - ListAPIView. User favorites ro‘yxati.
+CourseViewHistoryCreateView - APIView yoki course detail ichida service. Tizim avtomatik yozadi, user form qilmaydi.
+MyCourseViewHistoryView - ListAPIView. Recently viewed kurslar.
+FavoriteSerializer - favorite listda course mini data ko‘rsatadi.
+FavoriteToggleSerializer - faqat course_id qabul qiladi.
+CourseViewHistorySerializer - recently viewed list uchun.
+UserActivitySerializer - admin/debug/internal log uchun, user UI shart emas.
+
+moderation
+
+ReportCreateView - CreateAPIView. User review report qiladi.
+MyReportListView - ListAPIView. User report statusini ko‘radi.
+ModerationActionListCreateView - ListCreateAPIView. Faqat moderator/admin uchun.
+ReportCreateSerializer - review, reason validate.
+ReportListSerializer - report status, reason, review qisqa info.
+ModerationActionSerializer - action, reason, moderator info.
+
+notifications
+
+NotificationListView - ListAPIView. User o‘z notificationlarini ko‘radi.
+NotificationMarkReadView - UpdateAPIView yoki APIView. Bitta notification is_read=True.
+NotificationMarkAllReadView - APIView. Bulk update kerak, shuning uchun genericdan ko‘ra APIView qulay.
+NotificationSerializer - list/detail uchun title, body, type, is_read, created_at.
+NotificationUpdateSerializer - faqat is_read update uchun.

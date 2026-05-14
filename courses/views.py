@@ -6,6 +6,10 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from .pagination import *
 
+class CategoryListView(ListAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
 class CourseCenterListView(ListAPIView):
     queryset = CourseCenter.objects.prefetch_related('courses')
     serializer_class = CourseCenterSerializer
@@ -23,7 +27,7 @@ class CourseCenterRetrieveView(RetrieveAPIView):
 
 class MentorListView(ListAPIView):
     queryset = Mentor.objects.prefetch_related(Prefetch(
-        'courses',queryset=Course.objects.filter(is_published=True).only('id', 'title', 'slug', 'thumbnail', 'price')
+        'courses',queryset=Course.objects.filter(is_published=True).only('id', 'title', 'slug', 'thumbnail', 'price','rating', 'center', 'level')
     ))
     serializer_class = MentorListSerializer
     filter_backends = [DjangoFilterBackend,filters.SearchFilter]
@@ -53,7 +57,7 @@ class CourseListView(ListAPIView):
     filter_fields = ['price','category','course_center','language','level','certificate_available']
 
 class CourseRetrieveView(RetrieveAPIView):
-    queryset = Course.objects.filter(is_published=True).select_related('category','mentor','course_center')
+    queryset = Course.objects.filter(is_published=True).select_related('category','mentor','course_center').prefetch_related('tags')
     serializer_class = CourseSerializer
     lookup_field = 'slug'
     lookup_url_kwarg = 'slug'

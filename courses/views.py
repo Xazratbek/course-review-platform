@@ -27,7 +27,7 @@ class CourseCenterRetrieveView(RetrieveAPIView):
 
 class MentorListView(ListAPIView):
     queryset = Mentor.objects.prefetch_related(Prefetch(
-        'courses',queryset=Course.objects.filter(is_published=True).only('id', 'title', 'slug', 'thumbnail', 'price','rating', 'center', 'level')
+        'courses',queryset=Course.objects.filter(is_published=True).only('id', 'title', 'slug', 'thumbnail', 'price','average_rating', 'course_center', 'level')
     ))
     serializer_class = MentorListSerializer
     filter_backends = [DjangoFilterBackend,filters.SearchFilter]

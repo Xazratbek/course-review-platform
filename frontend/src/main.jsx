@@ -2,12 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Bell,
-  Bookmark,
   BookOpenCheck,
+  Building2,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
   Compass,
   Flag,
   Heart,
@@ -17,21 +17,21 @@ import {
   LogIn,
   Menu,
   MessageSquareText,
+  RotateCcw,
   Search,
   Send,
   Settings,
   ShieldCheck,
-  Sparkles,
+  SlidersHorizontal,
   Star,
+  Tag,
   ThumbsUp,
-  TrendingUp,
   Upload,
   UserRound,
   UsersRound,
   X,
 } from 'lucide-react';
 import { api, assetUrl, getStoredUser, login, logout, signup } from './services/api.js';
-import { mockAnalytics, mockDiscussion, mockMembers } from './data/mock.js';
 import './styles/app.css';
 
 const formatPrice = (value) => {
@@ -51,6 +51,15 @@ const normalizeList = (payload) => {
   return [];
 };
 
+function VerifiedBadge({ show }) {
+  if (!show) return null;
+  return (
+    <span className="verified-badge" title="Tasdiqlangan">
+      <CheckCircle2 size={15} />
+    </span>
+  );
+}
+
 function usePlatformData(filters) {
   const [state, setState] = useState({
     courses: [],
@@ -63,6 +72,7 @@ function usePlatformData(filters) {
 
   useEffect(() => {
     let alive = true;
+    setState((current) => ({ ...current, loading: true }));
     Promise.allSettled([
       api.getCourses({
         search: filters.search,
@@ -78,10 +88,16 @@ function usePlatformData(filters) {
       const [courses, centers, mentors, tags] = results.map((result) =>
         result.status === 'fulfilled' ? normalizeList(result.value) : []
       );
-      const error = results.some((result) => result.status === 'rejected')
-        ? 'Backend ishga tushmagan yoki ayrim endpointlar javob bermadi. Mock panellar ishlayapti.'
-        : '';
-      setState({ courses, centers, mentors, tags, loading: false, error });
+      setState({
+        courses,
+        centers,
+        mentors,
+        tags,
+        loading: false,
+        error: results.some((result) => result.status === 'rejected')
+          ? 'API bilan aloqa bo‘lmadi. Backend serverni tekshiring.'
+          : '',
+      });
     });
     return () => {
       alive = false;
@@ -93,10 +109,39 @@ function usePlatformData(filters) {
 
 function Sidebar({ collapsed, setCollapsed, active, setActive }) {
   const groups = [
-    { name: 'Explore', icon: LayoutDashboard, items: ['Courses', 'Centers', 'Mentors', 'Tags'] },
-    { name: 'My flows', icon: UserRound, items: ['Register/Login', 'Profile', 'Favorites'] },
-    { name: 'Reviews', icon: MessageSquareText, items: ['Write review', 'Vote', 'Comment', 'Report'] },
-    { name: 'Settings', icon: Settings, items: ['Security'] },
+    {
+      name: 'Explore',
+      icon: LayoutDashboard,
+      items: [
+        { name: 'Courses', icon: LibraryBig },
+        { name: 'Centers', icon: Building2 },
+        { name: 'Mentors', icon: UsersRound },
+        { name: 'Tags', icon: Tag },
+      ],
+    },
+    {
+      name: 'Account',
+      icon: UserRound,
+      items: [
+        { name: 'Profile', icon: UserRound },
+        { name: 'Favorites', icon: Heart },
+        { name: 'Notifications', icon: Bell },
+      ],
+    },
+    {
+      name: 'Reviews',
+      icon: MessageSquareText,
+      items: [
+        { name: 'My reviews', icon: MessageSquareText },
+        { name: 'Votes', icon: ThumbsUp },
+        { name: 'Reports', icon: Flag },
+      ],
+    },
+    {
+      name: 'Settings',
+      icon: Settings,
+      items: [{ name: 'Security', icon: ShieldCheck }],
+    },
   ];
 
   return (
@@ -105,7 +150,7 @@ function Sidebar({ collapsed, setCollapsed, active, setActive }) {
         <div className="brand-mark">CR</div>
         <div className="brand-copy">
           <strong>CourseRate</strong>
-          <span>Review platform</span>
+          <span>Course reviews</span>
         </div>
       </div>
 
@@ -115,26 +160,30 @@ function Sidebar({ collapsed, setCollapsed, active, setActive }) {
 
       <nav className="nav-stack" aria-label="Asosiy menyu">
         {groups.map((group) => {
-          const Icon = group.icon;
-          const open = group.items.includes(active);
+          const GroupIcon = group.icon;
+          const open = group.items.some((item) => item.name === active);
           return (
             <div className={`nav-group ${open ? 'is-open' : ''}`} key={group.name}>
-              <button className="nav-head" onClick={() => setActive(group.items[0])}>
-                <Icon size={19} />
+              <button className="nav-head" onClick={() => setActive(group.items[0].name)}>
+                <GroupIcon size={19} />
                 <span>{group.name}</span>
                 <ChevronDown className="nav-chevron" size={16} />
               </button>
               {!collapsed && (
                 <div className="nav-children">
-                  {group.items.map((item) => (
-                    <button
-                      className={active === item ? 'is-active' : ''}
-                      key={item}
-                      onClick={() => setActive(item)}
-                    >
-                      {item}
-                    </button>
-                  ))}
+                  {group.items.map((item) => {
+                    const ItemIcon = item.icon;
+                    return (
+                      <button
+                        className={active === item.name ? 'is-active' : ''}
+                        key={item.name}
+                        onClick={() => setActive(item.name)}
+                      >
+                        <ItemIcon size={16} />
+                        <span>{item.name}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -143,15 +192,11 @@ function Sidebar({ collapsed, setCollapsed, active, setActive }) {
       </nav>
 
       <div className="sidebar-footer">
-        <div className="quick-action">
-          <Sparkles size={18} />
-          <span>AI review scout</span>
-        </div>
         <div className="user-chip">
           <div className="avatar">JB</div>
           <div>
             <strong>Jonibek</strong>
-            <span>Product owner</span>
+            <span>Owner</span>
           </div>
         </div>
       </div>
@@ -159,22 +204,25 @@ function Sidebar({ collapsed, setCollapsed, active, setActive }) {
   );
 }
 
-function Topbar({ query, setQuery, user, onLoginClick }) {
+function Topbar({ draftSearch, setDraftSearch, onSearch, user, onLoginClick }) {
   return (
     <header className="topbar">
       <div>
-        <p className="crumbs">Education / Courses / Review Intelligence</p>
-        <h1>Kurslar reyting paneli</h1>
+        <p className="crumbs">Education / Course reviews</p>
+        <h1>Kurslarni solishtiring</h1>
       </div>
       <div className="top-actions">
-        <label className="search-box">
+        <form className="search-box" onSubmit={onSearch}>
           <Search size={18} />
           <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Kurs, mentor yoki til qidirish"
+            value={draftSearch}
+            onChange={(event) => setDraftSearch(event.target.value)}
+            placeholder="Kurs, mentor yoki markaz"
           />
-        </label>
+          <button className="search-submit" aria-label="Qidirish">
+            <Search size={16} />
+          </button>
+        </form>
         <button className="icon-btn" aria-label="Bildirishnomalar">
           <Bell size={19} />
         </button>
@@ -187,76 +235,41 @@ function Topbar({ query, setQuery, user, onLoginClick }) {
   );
 }
 
-function CourseHero({ course }) {
+function CourseHero({ course, onReview }) {
   const tags = course?.tags?.slice(0, 4) || [];
   return (
     <section className="course-hero reveal">
       <div className="course-hero__content">
         <div className="eyebrow">
-          <ShieldCheck size={16} />
-          {course?.course_center?.verified ? 'Verified center' : 'Open catalog'}
+          <Building2 size={16} />
+          <span>{course?.course_center?.title || 'Course center'}</span>
+          <VerifiedBadge show={course?.course_center?.verified} />
         </div>
-        <h2>{course?.title || 'Backend Development Foundation'}</h2>
-        <p>{course?.description || 'Amaliy loyiha, mentor feedback va review signalari bilan kurslarni solishtirish paneli.'}</p>
+        <h2>{course?.title || 'Kurs tanlang'}</h2>
+        <p>{course?.description || 'Katalogdan kurs tanlang va batafsil ma’lumotni ko‘ring.'}</p>
         <div className="tag-row">
-          {(tags.length ? tags : [{ name: 'Django' }, { name: 'REST API' }, { name: 'Mentor' }]).map((tag) => (
-            <span key={tag.slug || tag.name}>{tag.name}</span>
+          {(tags.length ? tags : [{ name: 'Django' }, { name: 'API' }, { name: 'Frontend' }]).map((tagItem) => (
+            <span key={tagItem.slug || tagItem.name}>{tagItem.name}</span>
           ))}
         </div>
         <div className="hero-meta">
-          <span><Star size={16} fill="currentColor" /> {course?.average_rating || '4.8'}</span>
-          <span><BookOpenCheck size={16} /> {course?.duration_in_weeks || 8} hafta</span>
-          <span><UsersRound size={16} /> {course?.students_count || 132} talaba</span>
+          <span><Star size={16} fill="currentColor" /> {course?.average_rating || '0.0'}</span>
+          <span><BookOpenCheck size={16} /> {course?.duration_in_weeks || '-'} hafta</span>
+          <span><UsersRound size={16} /> {course?.students_count || 0} talaba</span>
         </div>
       </div>
       <div className="hero-side">
-        <button><span>Level</span><strong>{course?.level || 'middle'}</strong></button>
-        <button><span>Language</span><strong>{course?.language || 'uz'}</strong></button>
+        <button><span>Level</span><strong>{course?.level || '-'}</strong></button>
+        <button><span>Language</span><strong>{course?.language || '-'}</strong></button>
         <button><span>Price</span><strong>{formatPrice(course?.price)}</strong></button>
-        <button><span>Certificate</span><strong>{course?.certificate_available ? 'Bor' : 'Yo‘q'}</strong></button>
+        <button onClick={onReview} className="hero-review-btn"><MessageSquareText size={16} /> Sharh qoldirish</button>
       </div>
     </section>
   );
 }
 
-function StatsCard({ courses, mentors, centers }) {
-  const totals = useMemo(() => {
-    const reviews = courses.reduce((sum, course) => sum + Number(course.reviews_count || 0), 0);
-    const students = courses.reduce((sum, course) => sum + Number(course.students_count || 0), 0);
-    const avg = courses.length
-      ? courses.reduce((sum, course) => sum + Number(course.average_rating || 0), 0) / courses.length
-      : 4.4;
-    return { reviews, students, avg: avg.toFixed(1) };
-  }, [courses]);
-
-  return (
-    <section className="stats-card reveal">
-      <div className="section-head">
-        <div>
-          <h3>Statistics overview</h3>
-          <p>Mock analytics, course API data bilan aralash.</p>
-        </div>
-        <button className="ghost-btn">2026 <ChevronDown size={16} /></button>
-      </div>
-      <div className="bar-chart" aria-label="Oylar bo'yicha faollik">
-        {mockAnalytics.map((item) => (
-          <div className="bar-wrap" key={item.month}>
-            <span className="bar" style={{ height: `${item.value}%` }} />
-            <small>{item.month}</small>
-          </div>
-        ))}
-      </div>
-      <div className="metric-grid">
-        <div><strong>{totals.avg}</strong><span>Avg. score</span></div>
-        <div><strong>{totals.reviews || 48}</strong><span>Reviews</span></div>
-        <div><strong>{totals.students || 132}</strong><span>Students</span></div>
-        <div><strong>{mentors.length || 6}/{centers.length || 4}</strong><span>Mentor/center</span></div>
-      </div>
-    </section>
-  );
-}
-
-function FilterBar({ filters, setFilters, onClear }) {
+function FilterBar({ open, filters, setFilters, onClear }) {
+  if (!open) return null;
   return (
     <div className="filter-bar">
       <label>
@@ -286,31 +299,32 @@ function FilterBar({ filters, setFilters, onClear }) {
           <option value="false">Yo‘q</option>
         </select>
       </label>
-      <button onClick={onClear}>
-        Clear
+      <button className="clear-icon-btn" onClick={onClear} aria-label="Filterlarni tozalash">
+        <RotateCcw size={17} />
       </button>
     </div>
   );
 }
 
 function CourseList({ courses, loading, selectedId, setSelectedId, filters, setFilters, onClearFilters }) {
+  const [filterOpen, setFilterOpen] = useState(false);
   const fallback = [
     {
       id: 'mock-1',
       title: 'Django REST Framework Pro',
-      description: 'JWT, serializer, permission va query optimization bilan production API.',
+      description: 'Production API, JWT va permissions.',
       level: 'bootcamp',
       language: 'uz',
       price: 1200000,
       average_rating: '4.9',
       students_count: 210,
       course_center: { title: 'Najot Ta’lim', verified: true },
-      mentor: { full_name: 'Ali Karimov' },
+      mentor: { full_name: 'Ali Karimov', verified: true },
     },
     {
       id: 'mock-2',
       title: 'Frontend UX Review Lab',
-      description: 'UI audit, usability metrics va review dashboard prototyping.',
+      description: 'Interface audit va usability basics.',
       level: 'middle',
       language: 'en',
       price: 890000,
@@ -327,11 +341,13 @@ function CourseList({ courses, loading, selectedId, setSelectedId, filters, setF
       <div className="section-head">
         <div>
           <h3>Kurs katalogi</h3>
-          <p>{loading ? 'API yuklanmoqda...' : `${list.length} ta kurs ko‘rsatildi`}</p>
+          <p>{loading ? 'Yuklanmoqda...' : `${list.length} ta kurs`}</p>
         </div>
-        <button className="ghost-btn"><ClipboardList size={17} /> Filter</button>
+        <button className={`ghost-btn ${filterOpen ? 'is-active' : ''}`} onClick={() => setFilterOpen(!filterOpen)}>
+          <SlidersHorizontal size={17} /> Filter
+        </button>
       </div>
-      <FilterBar filters={filters} setFilters={setFilters} onClear={onClearFilters} />
+      <FilterBar open={filterOpen} filters={filters} setFilters={setFilters} onClear={onClearFilters} />
       <div className="course-list">
         {loading && <div className="loading-line"><Loader2 className="spin" size={18} /> Kurslar yuklanmoqda</div>}
         {!loading && list.map((course) => (
@@ -345,7 +361,11 @@ function CourseList({ courses, loading, selectedId, setSelectedId, filters, setF
             </div>
             <div>
               <strong>{course.title}</strong>
-              <span>{course.course_center?.title || 'Center TBD'} · {course.mentor?.full_name || 'Mentor TBD'}</span>
+              <span>
+                {course.course_center?.title || 'Center TBD'} <VerifiedBadge show={course.course_center?.verified} />
+                <span className="dot-separator">·</span>
+                {course.mentor?.full_name || 'Mentor TBD'} <VerifiedBadge show={course.mentor?.verified} />
+              </span>
             </div>
             <div className="row-meta">
               <span><Star size={15} fill="currentColor" /> {course.average_rating || '0.0'}</span>
@@ -358,71 +378,155 @@ function CourseList({ courses, loading, selectedId, setSelectedId, filters, setF
   );
 }
 
-function DetailTabs({ course }) {
+function CourseDetail({ course, onReview }) {
   return (
     <section className="detail-card reveal">
       <div className="tab-row">
         <button className="is-active">Details</button>
-        <button>Content</button>
-        <button>Review issue</button>
-        <button>Discussion</button>
+        <button>Reviews</button>
+        <button>Mentor</button>
       </div>
       <div className="detail-grid">
-        <div className="detail-item"><BookOpenCheck size={18} /><span>{course?.duration_in_weeks || 8} hafta o‘qish</span></div>
-        <div className="detail-item"><ShieldCheck size={18} /><span>{course?.certificate_available ? 'Sertifikat mavjud' : 'Sertifikat belgilanmagan'}</span></div>
-        <div className="detail-item"><Compass size={18} /><span>{course?.level || 'middle'} daraja</span></div>
-        <div className="detail-item"><MessageSquareText size={18} /><span>{course?.reviews_count || 24} review signali</span></div>
+        <div className="detail-item"><BookOpenCheck size={18} /><span>{course?.duration_in_weeks || '-'} hafta</span></div>
+        <div className="detail-item"><ShieldCheck size={18} /><span>{course?.certificate_available ? 'Sertifikat bor' : 'Sertifikat yo‘q'}</span></div>
+        <div className="detail-item"><Compass size={18} /><span>{course?.level || '-'} daraja</span></div>
+        <div className="detail-item"><MessageSquareText size={18} /><span>{course?.reviews_count || 0} sharh</span></div>
       </div>
-      <h4>Team members</h4>
-      <div className="member-grid">
-        {mockMembers.map((member) => (
-          <div className="member" key={member.name}>
-            <img src={member.avatar} alt="" />
-            <div>
-              <strong>{member.name}</strong>
-              <span>{member.role}</span>
-            </div>
-            <em>{member.badge}</em>
-          </div>
-        ))}
+      <div className="detail-summary">
+        <div>
+          <span>Mentor</span>
+          <strong>{course?.mentor?.full_name || 'Belgilanmagan'} <VerifiedBadge show={course?.mentor?.verified} /></strong>
+        </div>
+        <div>
+          <span>Markaz</span>
+          <strong>{course?.course_center?.title || 'Belgilanmagan'} <VerifiedBadge show={course?.course_center?.verified} /></strong>
+        </div>
+        <button onClick={onReview}><MessageSquareText size={17} /> Sharh qoldirish</button>
       </div>
     </section>
   );
 }
 
-function UserFlowPanel({ selectedCourse }) {
+function DirectoryPanel({ centers, mentors, tags }) {
   return (
-    <section className="user-flow-panel reveal">
-      <div className="section-head">
+    <div className="side-column">
+      <section className="content-panel reveal">
+        <div className="section-head">
+          <div>
+            <h3>O‘quv markazlar</h3>
+            <p>{centers.length} ta markaz</p>
+          </div>
+          <Building2 size={18} />
+        </div>
+        <div className="compact-list">
+          {(centers.length ? centers : [{ title: 'Najot Ta’lim', verified: true }, { title: 'Grow Academy' }]).slice(0, 5).map((center) => (
+            <div className="compact-row" key={center.id || center.title}>
+              <span>{center.title}</span>
+              <VerifiedBadge show={center.verified} />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="content-panel reveal">
+        <div className="section-head">
+          <div>
+            <h3>Mentorlar</h3>
+            <p>{mentors.length} ta mentor</p>
+          </div>
+          <UsersRound size={18} />
+        </div>
+        <div className="compact-list">
+          {(mentors.length ? mentors : [{ full_name: 'Ali Karimov', specialization: 'Backend' }]).slice(0, 5).map((mentor) => (
+            <div className="mentor-row" key={mentor.id || mentor.full_name}>
+              <div className="avatar small">{mentor.full_name?.slice(0, 2).toUpperCase() || 'MN'}</div>
+              <div>
+                <strong>{mentor.full_name}</strong>
+                <span>{mentor.specialization || 'Mentor'}</span>
+              </div>
+              <VerifiedBadge show={mentor.verified} />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="content-panel reveal">
+        <div className="section-head">
+          <div>
+            <h3>Teglar</h3>
+            <p>Tezkor filter</p>
+          </div>
+          <Tag size={18} />
+        </div>
+        <div className="tag-cloud">
+          {(tags.length ? tags : [{ name: 'Django' }, { name: 'API' }, { name: 'React' }]).slice(0, 14).map((tagItem) => (
+            <span key={tagItem.slug || tagItem.name}>{tagItem.name}</span>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function WorkspaceView({ active, user, selectedCourse, onReview }) {
+  return (
+    <section className="workspace-view reveal">
+      <div className="workspace-header">
         <div>
-          <h3>My workspace</h3>
-          <p>{selectedCourse?.title || 'Course'}</p>
+          <p className="crumbs">Account / {active}</p>
+          <h2>{active}</h2>
         </div>
-        <button className="ghost-btn"><Heart size={17} /> Favorite</button>
+        <button className="ghost-btn" onClick={onReview}><MessageSquareText size={17} /> Sharh yozish</button>
       </div>
-      <div className="review-composer">
-        <div className="flow-actions">
-          <button className="is-active"><MessageSquareText size={16} /> Review</button>
-          <button><Upload size={16} /> Media</button>
-          <button><ThumbsUp size={16} /> Vote</button>
-          <button><Send size={16} /> Comment</button>
-          <button><Flag size={16} /> Report</button>
+      <div className="workspace-grid">
+        <article className="action-card">
+          <UserRound size={24} />
+          <h3>{user?.username || 'Guest'}</h3>
+          <p>{user?.email || 'Login qiling va profilingizni boshqaring.'}</p>
+          <button>Profilni tahrirlash</button>
+        </article>
+        <article className="action-card">
+          <Heart size={24} />
+          <h3>Favorites</h3>
+          <p>{selectedCourse?.title || 'Tanlangan kurs'} sevimlilarga qo‘shilishi mumkin.</p>
+          <button>Favorite</button>
+        </article>
+        <article className="action-card">
+          <Bell size={24} />
+          <h3>Notifications</h3>
+          <p>Sharh, reply va system xabarlar shu yerda ko‘rinadi.</p>
+          <button>Mark as read</button>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+function ReviewModal({ open, onClose, course }) {
+  if (!open) return null;
+  return (
+    <div className="modal-backdrop">
+      <form className="review-modal">
+        <button className="modal-close" type="button" onClick={onClose} aria-label="Yopish"><X size={18} /></button>
+        <div>
+          <p className="crumbs">{course?.title || 'Course'}</p>
+          <h3>Sharh qoldirish</h3>
         </div>
-        <div className="composer-grid">
+        <div className="review-form-grid">
           <label>Rating <input placeholder="1-5" /></label>
           <label>Title <input placeholder="Qisqa sarlavha" /></label>
-          <label className="wide">Afzalliklar <textarea placeholder="Nima yaxshi ishladi?" /></label>
-          <label className="wide">Kamchiliklar <textarea placeholder="Nima yetishmadi?" /></label>
-          <label className="wide">Review <textarea placeholder="Fikringizni yozing" /></label>
+          <label>Afzalliklar <textarea placeholder="Nima yaxshi?" /></label>
+          <label>Kamchiliklar <textarea placeholder="Nima yetishmadi?" /></label>
+          <label className="wide">Sharh <textarea placeholder="To‘liq fikringiz" /></label>
           <label>Media <input type="file" /></label>
         </div>
         <div className="composer-actions">
-          <button><Send size={16} /> Submit</button>
-          <button><ThumbsUp size={16} /> Like</button>
-          <button><Flag size={16} /> Report</button>
+          <button type="button"><Upload size={16} /> Media</button>
+          <button type="button"><Send size={16} /> Yuborish</button>
+          <button type="button"><Flag size={16} /> Report</button>
         </div>
-      </div>
-    </section>
+      </form>
+    </div>
   );
 }
 
@@ -436,8 +540,8 @@ function LoginModal({ open, onClose, onUser }) {
     event.preventDefault();
     setStatus({ loading: true, error: '' });
     try {
-      const user = mode === 'login' ? await login(form) : await signup(form);
-      onUser(user);
+      const nextUser = mode === 'login' ? await login(form) : await signup(form);
+      onUser(nextUser);
       onClose();
     } catch (error) {
       setStatus({ loading: false, error: error.message });
@@ -452,25 +556,13 @@ function LoginModal({ open, onClose, onUser }) {
           <button className={mode === 'login' ? 'is-active' : ''} type="button" onClick={() => setMode('login')}>Login</button>
           <button className={mode === 'signup' ? 'is-active' : ''} type="button" onClick={() => setMode('signup')}>Signup</button>
         </div>
-        <label>
-          Username
-          <input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} required />
-        </label>
+        <label>Username <input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} required /></label>
         {mode === 'signup' && (
-          <label>
-            Email
-            <input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required />
-          </label>
+          <label>Email <input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required /></label>
         )}
-        <label>
-          Password
-          <input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required />
-        </label>
+        <label>Password <input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required /></label>
         {mode === 'signup' && (
-          <label>
-            Phone
-            <input value={form.phone_number} onChange={(event) => setForm({ ...form, phone_number: event.target.value })} />
-          </label>
+          <label>Phone <input value={form.phone_number} onChange={(event) => setForm({ ...form, phone_number: event.target.value })} /></label>
         )}
         {status.error && <div className="form-error">{status.error}</div>}
         <button className="primary-btn" disabled={status.loading}>
@@ -486,12 +578,13 @@ function App() {
   const [collapsed, setCollapsed] = useState(() => window.matchMedia('(max-width: 920px)').matches);
   const [active, setActive] = useState('Courses');
   const [query, setQuery] = useState('');
-  const [filters, setFilters] = useState({ search: '', level: '', language: '', certificate: '' });
+  const [draftSearch, setDraftSearch] = useState('');
+  const [filters, setFilters] = useState({ level: '', language: '', certificate: '' });
   const [selectedId, setSelectedId] = useState(null);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [user, setUser] = useState(getStoredUser());
-  const apiFilters = useMemo(() => ({ ...filters, search: query }), [filters, query]);
-  const { courses, centers, mentors, tags, loading, error } = usePlatformData(apiFilters);
+  const { courses, centers, mentors, tags, loading, error } = usePlatformData({ ...filters, search: query });
 
   useEffect(() => {
     if (!user) return;
@@ -500,77 +593,57 @@ function App() {
       .catch(() => setUser(getStoredUser()));
   }, []);
 
-  const filteredCourses = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return courses;
-    return courses.filter((course) =>
-      [course.title, course.description, course.language, course.mentor?.full_name, course.course_center?.title]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(term))
-    );
-  }, [courses, query]);
-
   const selectedCourse = useMemo(() => {
-    const source = filteredCourses.length ? filteredCourses : courses;
-    return source.find((course) => course.id === selectedId) || source[0] || null;
-  }, [courses, filteredCourses, selectedId]);
+    return courses.find((course) => course.id === selectedId) || courses[0] || null;
+  }, [courses, selectedId]);
+
+  const isExplore = ['Courses', 'Centers', 'Mentors', 'Tags'].includes(active);
+
+  const submitSearch = (event) => {
+    event.preventDefault();
+    setQuery(draftSearch.trim());
+  };
 
   return (
     <div className="app-shell">
       <div className="sky-noise" />
       <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} active={active} setActive={setActive} />
       <main className="workspace">
-        <Topbar query={query} setQuery={setQuery} user={user} onLoginClick={() => user ? (logout(), setUser(null)) : setLoginOpen(true)} />
+        <Topbar
+          draftSearch={draftSearch}
+          setDraftSearch={setDraftSearch}
+          onSearch={submitSearch}
+          user={user}
+          onLoginClick={() => user ? (logout(), setUser(null)) : setLoginOpen(true)}
+        />
         {error && <div className="api-alert">{error}</div>}
-        <div className="dashboard-grid">
-          <div className="primary-column">
-            <CourseHero course={selectedCourse} />
-            <CourseList
-              courses={filteredCourses}
-              loading={loading}
-              selectedId={selectedCourse?.id}
-              setSelectedId={setSelectedId}
-              filters={filters}
-              setFilters={setFilters}
-              onClearFilters={() => {
-                setQuery('');
-                setFilters({ level: '', language: '', certificate: '' });
-              }}
-            />
-            <DetailTabs course={selectedCourse} />
+
+        {isExplore ? (
+          <div className="dashboard-grid">
+            <div className="primary-column">
+              <CourseHero course={selectedCourse} onReview={() => setReviewOpen(true)} />
+              <CourseList
+                courses={courses}
+                loading={loading}
+                selectedId={selectedCourse?.id}
+                setSelectedId={setSelectedId}
+                filters={filters}
+                setFilters={setFilters}
+                onClearFilters={() => {
+                  setDraftSearch('');
+                  setQuery('');
+                  setFilters({ level: '', language: '', certificate: '' });
+                }}
+              />
+              <CourseDetail course={selectedCourse} onReview={() => setReviewOpen(true)} />
+            </div>
+            <DirectoryPanel centers={centers} mentors={mentors} tags={tags} />
           </div>
-          <div className="side-column">
-            <StatsCard courses={courses} mentors={mentors} centers={centers} />
-            <section className="content-panel reveal">
-              <div className="section-head">
-                <div>
-                  <h3>Top tags</h3>
-                  <p>Course tags endpointidan.</p>
-                </div>
-                <Bookmark size={18} />
-              </div>
-              <div className="tag-cloud">
-                {(tags.length ? tags : [{ name: 'Django' }, { name: 'API' }, { name: 'UX' }, { name: 'Mentor' }]).slice(0, 12).map((tag) => (
-                  <span key={tag.slug || tag.name}>{tag.name}</span>
-                ))}
-              </div>
-            </section>
-            <section className="discussion-card reveal">
-              <h3>Discussion signals</h3>
-              {mockDiscussion.map((item) => (
-                <div className="signal" key={item.title}>
-                  <TrendingUp size={17} />
-                  <div>
-                    <strong>{item.title}</strong>
-                    <span>{item.body}</span>
-                  </div>
-                </div>
-              ))}
-            </section>
-          </div>
-        </div>
-        <UserFlowPanel selectedCourse={selectedCourse} />
+        ) : (
+          <WorkspaceView active={active} user={user} selectedCourse={selectedCourse} onReview={() => setReviewOpen(true)} />
+        )}
       </main>
+      <ReviewModal open={reviewOpen} onClose={() => setReviewOpen(false)} course={selectedCourse} />
       <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} onUser={setUser} />
       <button className="mobile-menu" onClick={() => setCollapsed(false)} aria-label="Menu">
         <Menu size={20} />

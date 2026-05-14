@@ -17,7 +17,7 @@ class CourseCenterSerializer(serializers.ModelSerializer):
 class CourseMiniSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
-        fields = ["id", "title", "slug", "thumbnail", "price",'rating', 'center', 'level']
+        fields = ["id", "title", "slug", "thumbnail", "price",'average_rating', 'course_center', 'level']
 class MentorListSerializer(serializers.ModelSerializer):
     courses = CourseMiniSerializer(many=True, read_only=True)
     class Meta:
@@ -27,7 +27,7 @@ class MentorListSerializer(serializers.ModelSerializer):
 class MentorMiniSerializer(serializers.ModelSerializer):
     class Meta:
         model = Mentor
-        fields = ['id','full_name','slug', "avatar", "specialization", "courses",'experience','is_verified']
+        fields = ['id','full_name','slug', "avatar", "specialization", "courses",'experience','verified']
 
 class CouresTagSerializer(serializers.ModelSerializer):
     class Meta:

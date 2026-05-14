@@ -62,6 +62,7 @@ function VerifiedBadge({ show }) {
 
 function usePlatformData(filters) {
   const [state, setState] = useState({
+    categories: [],
     courses: [],
     centers: [],
     mentors: [],
@@ -74,21 +75,24 @@ function usePlatformData(filters) {
     let alive = true;
     setState((current) => ({ ...current, loading: true }));
     Promise.allSettled([
+      api.getCategories(),
       api.getCourses({
         search: filters.search,
         language: filters.language,
         level: filters.level,
         certificate_available: filters.certificate,
+        category: filters.category,
       }),
       api.getCenters({ search: filters.search }),
       api.getMentors({ search: filters.search }),
       api.getTags({ search: filters.search }),
     ]).then((results) => {
       if (!alive) return;
-      const [courses, centers, mentors, tags] = results.map((result) =>
+      const [categories, courses, centers, mentors, tags] = results.map((result) =>
         result.status === 'fulfilled' ? normalizeList(result.value) : []
       );
       setState({
+        categories,
         courses,
         centers,
         mentors,
@@ -102,12 +106,12 @@ function usePlatformData(filters) {
     return () => {
       alive = false;
     };
-  }, [filters.search, filters.language, filters.level, filters.certificate]);
+  }, [filters.search, filters.language, filters.level, filters.certificate, filters.category]);
 
   return state;
 }
 
-function Sidebar({ collapsed, setCollapsed, active, setActive }) {
+function Sidebar({ collapsed, setCollapsed, active, setActive, user, onProfileClick }) {
   const groups = [
     {
       name: 'Explore',
@@ -192,13 +196,23 @@ function Sidebar({ collapsed, setCollapsed, active, setActive }) {
       </nav>
 
       <div className="sidebar-footer">
-        <div className="user-chip">
-          <div className="avatar">JB</div>
-          <div>
-            <strong>Jonibek</strong>
-            <span>Owner</span>
+        {user ? (
+          <button className="user-chip user-chip-btn" onClick={onProfileClick}>
+            <div className="avatar">{(user.username || 'U').slice(0, 2).toUpperCase()}</div>
+            <div>
+              <strong>{user.username}</strong>
+              <span>{user.email || 'Profile'}</span>
+            </div>
+          </button>
+        ) : (
+          <div className="user-chip">
+            <div className="avatar">GU</div>
+            <div>
+              <strong>Guest</strong>
+              <span>Login qiling</span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </aside>
   );
@@ -268,10 +282,19 @@ function CourseHero({ course, onReview }) {
   );
 }
 
-function FilterBar({ open, filters, setFilters, onClear }) {
+function FilterBar({ open, filters, setFilters, onClear, categories }) {
   if (!open) return null;
   return (
     <div className="filter-bar">
+      <label>
+        Category
+        <select value={filters.category} onChange={(event) => setFilters({ ...filters, category: event.target.value })}>
+          <option value="">All</option>
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>{category.name}</option>
+          ))}
+        </select>
+      </label>
       <label>
         Level
         <select value={filters.level} onChange={(event) => setFilters({ ...filters, level: event.target.value })}>
@@ -306,7 +329,7 @@ function FilterBar({ open, filters, setFilters, onClear }) {
   );
 }
 
-function CourseList({ courses, loading, selectedId, setSelectedId, filters, setFilters, onClearFilters }) {
+function CourseList({ courses, loading, selectedId, setSelectedId, filters, setFilters, onClearFilters, categories }) {
   const [filterOpen, setFilterOpen] = useState(false);
   const fallback = [
     {
@@ -334,7 +357,8 @@ function CourseList({ courses, loading, selectedId, setSelectedId, filters, setF
       mentor: { full_name: 'Sara Green' },
     },
   ];
-  const list = courses.length ? courses : fallback;
+  const hasActiveFilters = Boolean(filters.level || filters.language || filters.certificate || filters.category);
+  const list = courses.length ? courses : hasActiveFilters ? [] : fallback;
 
   return (
     <section className="content-panel reveal">
@@ -347,9 +371,12 @@ function CourseList({ courses, loading, selectedId, setSelectedId, filters, setF
           <SlidersHorizontal size={17} /> Filter
         </button>
       </div>
-      <FilterBar open={filterOpen} filters={filters} setFilters={setFilters} onClear={onClearFilters} />
+      <FilterBar open={filterOpen} filters={filters} setFilters={setFilters} onClear={onClearFilters} categories={categories} />
       <div className="course-list">
         {loading && <div className="loading-line"><Loader2 className="spin" size={18} /> Kurslar yuklanmoqda</div>}
+        {!loading && list.length === 0 && (
+          <div className="loading-line">Filter bo‘yicha kurs topilmadi.</div>
+        )}
         {!loading && list.map((course) => (
           <button
             key={course.id}
@@ -468,6 +495,90 @@ function DirectoryPanel({ centers, mentors, tags }) {
   );
 }
 
+function ExploreSection({ active, courses, categories, centers, mentors, tags, loading, selectedCourse, setSelectedId, filters, setFilters, setDraftSearch, setQuery, onReview }) {
+  const [selectedDetail, setSelectedDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
+
+  useEffect(() => {
+    setSelectedDetail(null);
+    setDetailError('');
+  }, [active]);
+
+  if (active === 'Courses') {
+    return (
+      <div className="dashboard-grid">
+        <div className="primary-column">
+          <CourseHero course={selectedCourse} onReview={onReview} />
+          <CourseList
+            courses={courses}
+            loading={loading}
+            selectedId={selectedCourse?.id}
+            setSelectedId={setSelectedId}
+            filters={filters}
+            setFilters={setFilters}
+            onClearFilters={() => {
+              setDraftSearch('');
+              setQuery('');
+              setFilters({ level: '', language: '', certificate: '', category: '' });
+            }}
+            categories={categories}
+          />
+          <CourseDetail course={selectedCourse} onReview={onReview} />
+        </div>
+        <DirectoryPanel centers={centers} mentors={mentors} tags={tags} />
+      </div>
+    );
+  }
+
+  const mapByTab = {
+    Centers: centers,
+    Mentors: mentors,
+    Tags: tags,
+  };
+  const list = mapByTab[active] || [];
+  const titleKey = active === 'Mentors' ? 'full_name' : 'title';
+  const handleDetail = async (item) => {
+    if (!(active === 'Centers' || active === 'Mentors') || !item.slug) return;
+    setDetailLoading(true);
+    setDetailError('');
+    try {
+      const payload = active === 'Centers' ? await api.getCenter(item.slug) : await api.getMentor(item.slug);
+      setSelectedDetail(payload);
+    } catch (error) {
+      setDetailError(error.message);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  return (
+    <section className="workspace-view reveal">
+      <div className="workspace-header"><h2>{active} detail</h2></div>
+      <div className="compact-list">
+        {list.map((item) => (
+          <article
+            className="content-panel"
+            key={item.id || item.slug || item[titleKey] || item.name}
+            onClick={() => handleDetail(item)}
+          >
+            <h3>{item[titleKey] || item.name}</h3>
+            <p>{item.description || item.specialization || 'Detail ma’lumot backenddan keladi.'}</p>
+          </article>
+        ))}
+      </div>
+      {detailLoading && <div className="loading-line"><Loader2 className="spin" size={18} /> Detail yuklanmoqda</div>}
+      {detailError && <div className="form-error">{detailError}</div>}
+      {selectedDetail && (
+        <section className="detail-card reveal">
+          <h3>{selectedDetail.title || selectedDetail.full_name}</h3>
+          <p>{selectedDetail.description || selectedDetail.bio || selectedDetail.website || 'Detail topilmadi'}</p>
+        </section>
+      )}
+    </section>
+  );
+}
+
 function WorkspaceView({ active, user, selectedCourse, onReview }) {
   return (
     <section className="workspace-view reveal">
@@ -503,6 +614,7 @@ function WorkspaceView({ active, user, selectedCourse, onReview }) {
 }
 
 function ReviewModal({ open, onClose, course }) {
+  const [rating, setRating] = useState(0);
   if (!open) return null;
   return (
     <div className="modal-backdrop">
@@ -513,7 +625,15 @@ function ReviewModal({ open, onClose, course }) {
           <h3>Sharh qoldirish</h3>
         </div>
         <div className="review-form-grid">
-          <label>Rating <input placeholder="1-5" /></label>
+          <label>Rating
+            <div className="rating-stars">
+              {[1, 2, 3, 4, 5].map((value) => (
+                <button key={value} type="button" className="star-btn" onClick={() => setRating(value)}>
+                  <Star size={18} fill={value <= rating ? 'currentColor' : 'none'} />
+                </button>
+              ))}
+            </div>
+          </label>
           <label>Title <input placeholder="Qisqa sarlavha" /></label>
           <label>Afzalliklar <textarea placeholder="Nima yaxshi?" /></label>
           <label>Kamchiliklar <textarea placeholder="Nima yetishmadi?" /></label>
@@ -532,15 +652,22 @@ function ReviewModal({ open, onClose, course }) {
 
 function LoginModal({ open, onClose, onUser }) {
   const [mode, setMode] = useState('login');
-  const [form, setForm] = useState({ username: '', email: '', password: '', phone_number: '', role: 'student' });
+  const [form, setForm] = useState({ username: '', email: '', password: '', phone_number: '', role: 'student', avatar: null });
   const [status, setStatus] = useState({ loading: false, error: '' });
+  const [uploadProgress, setUploadProgress] = useState(0);
   if (!open) return null;
 
   const submit = async (event) => {
     event.preventDefault();
+    setUploadProgress(0);
     setStatus({ loading: true, error: '' });
     try {
-      const nextUser = mode === 'login' ? await login(form) : await signup(form);
+      const nextUser =
+        mode === 'login'
+          ? await login(form)
+          : await signup(form, {
+              onProgress: (percent) => setUploadProgress(percent),
+            });
       onUser(nextUser);
       onClose();
     } catch (error) {
@@ -564,6 +691,23 @@ function LoginModal({ open, onClose, onUser }) {
         {mode === 'signup' && (
           <label>Phone <input value={form.phone_number} onChange={(event) => setForm({ ...form, phone_number: event.target.value })} /></label>
         )}
+        {mode === 'signup' && (
+          <label>
+            Avatar
+            <input type="file" accept="image/*" onChange={(event) => setForm({ ...form, avatar: event.target.files?.[0] || null })} />
+          </label>
+        )}
+        {mode === 'signup' && status.loading && (
+          <div className="upload-progress-wrap">
+            <div className="upload-progress-head">
+              <span>Avatar yuklanmoqda...</span>
+              <strong>{uploadProgress}%</strong>
+            </div>
+            <div className="upload-progress">
+              <div className="upload-progress-bar" style={{ width: `${uploadProgress}%` }} />
+            </div>
+          </div>
+        )}
         {status.error && <div className="form-error">{status.error}</div>}
         <button className="primary-btn" disabled={status.loading}>
           {status.loading ? <Loader2 className="spin" size={18} /> : <LogIn size={18} />}
@@ -579,12 +723,12 @@ function App() {
   const [active, setActive] = useState('Courses');
   const [query, setQuery] = useState('');
   const [draftSearch, setDraftSearch] = useState('');
-  const [filters, setFilters] = useState({ level: '', language: '', certificate: '' });
+  const [filters, setFilters] = useState({ level: '', language: '', certificate: '', category: '' });
   const [selectedId, setSelectedId] = useState(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [user, setUser] = useState(getStoredUser());
-  const { courses, centers, mentors, tags, loading, error } = usePlatformData({ ...filters, search: query });
+  const { categories, courses, centers, mentors, tags, loading, error } = usePlatformData({ ...filters, search: query });
 
   useEffect(() => {
     if (!user) return;
@@ -607,38 +751,41 @@ function App() {
   return (
     <div className="app-shell">
       <div className="sky-noise" />
-      <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} active={active} setActive={setActive} />
+      <Sidebar
+        collapsed={collapsed}
+        setCollapsed={setCollapsed}
+        active={active}
+        setActive={setActive}
+        user={user}
+        onProfileClick={() => setActive('Profile')}
+      />
       <main className="workspace">
         <Topbar
           draftSearch={draftSearch}
           setDraftSearch={setDraftSearch}
           onSearch={submitSearch}
           user={user}
-          onLoginClick={() => user ? (logout(), setUser(null)) : setLoginOpen(true)}
+          onLoginClick={() => (user ? setActive('Profile') : setLoginOpen(true))}
         />
         {error && <div className="api-alert">{error}</div>}
 
         {isExplore ? (
-          <div className="dashboard-grid">
-            <div className="primary-column">
-              <CourseHero course={selectedCourse} onReview={() => setReviewOpen(true)} />
-              <CourseList
-                courses={courses}
-                loading={loading}
-                selectedId={selectedCourse?.id}
-                setSelectedId={setSelectedId}
-                filters={filters}
-                setFilters={setFilters}
-                onClearFilters={() => {
-                  setDraftSearch('');
-                  setQuery('');
-                  setFilters({ level: '', language: '', certificate: '' });
-                }}
-              />
-              <CourseDetail course={selectedCourse} onReview={() => setReviewOpen(true)} />
-            </div>
-            <DirectoryPanel centers={centers} mentors={mentors} tags={tags} />
-          </div>
+          <ExploreSection
+            active={active}
+            courses={courses}
+            categories={categories}
+            centers={centers}
+            mentors={mentors}
+            tags={tags}
+            loading={loading}
+            selectedCourse={selectedCourse}
+            setSelectedId={setSelectedId}
+            filters={filters}
+            setFilters={setFilters}
+            setDraftSearch={setDraftSearch}
+            setQuery={setQuery}
+            onReview={() => setReviewOpen(true)}
+          />
         ) : (
           <WorkspaceView active={active} user={user} selectedCourse={selectedCourse} onReview={() => setReviewOpen(true)} />
         )}

@@ -1,8 +1,17 @@
 from rest_framework import serializers
 from .models import *
-from rest_framework.response import Response
+from reviews.serializers import MiniReviewSerializer
+
 
 class ReportCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Report
-        fields = ['id','reporter','review','reason']
+        fields = ['reporter','review','reason']
+
+class ReportSerializer(serializers.ModelSerializer):
+    reporter_username = serializers.CharField(source='reporter.username',read_only=True)
+    review = MiniReviewSerializer(many=True)
+
+    class Meta:
+        model =  Report
+        fields = ['id','reporter','review','reporter_username','reason','status']

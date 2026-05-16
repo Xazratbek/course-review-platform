@@ -11,14 +11,13 @@ class NotificationType(models.TextChoices):
     SYSTEM = "system", "Tizim"
     PROMOTION = "promotion", "Aktsiya"
 
-
 class Notification(BaseModel):
     receiver = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='notifications')
     notification_type = models.CharField(max_length=25, choices=NotificationType.choices)
     title = models.CharField(max_length=255)
     body = models.TextField()
     is_read = models.BooleanField(default=False)
-    metadata = models.JSONField()
+    metadata = models.JSONField(null=True,blank=True)
 
     def __str__(self):
         return f"{self.notification_type} - {self.title}"

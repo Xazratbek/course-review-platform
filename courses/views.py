@@ -30,7 +30,7 @@ class CourseCenterRetrieveView(RetrieveAPIView):
     def retrieve(self, request, *args, **kwargs):
         metadata = {"activity_type":"view","course_center_id": str(self.get_queryset().first().id),"view":"course_center","time":str(now())}
 
-        UserActivity.objects.create(user=request.user,activity_type='view',metadata=metadata)
+        UserActivity.write_activity(user=request.user,activity_type='view',metadata=metadata)
 
         return super().retrieve(request, *args, **kwargs)
 
@@ -53,7 +53,7 @@ class MentorRetrieveView(RetrieveAPIView):
     def retrieve(self, request, *args, **kwargs):
         metadata = {"activity_type":"view","mentor_id": str(self.get_queryset().first().id),"view":"mentor","time":str(now())}
 
-        UserActivity.objects.create(user=request.user,activity_type='view',metadata=metadata)
+        UserActivity.write_activity(user=request.user,activity_type='view',metadata=metadata)
 
         return super().retrieve(request, *args, **kwargs)
 
@@ -83,6 +83,7 @@ class CourseRetrieveView(RetrieveAPIView):
     def retrieve(self, request, *args, **kwargs):
         metadata = {"activity_type":"view","course_id": str(self.get_queryset().first().id),"view":"course","time":str(now())}
 
-        UserActivity.objects.create(user=request.user,activity_type='view',metadata=metadata)
+        UserActivity.write_activity(user=request.user,activity_type='view',metadata=metadata)
         CourseViewHistory.objects.get_or_create(user=request.user,course=self.get_queryset().first())
+
         return super().retrieve(request, *args, **kwargs)

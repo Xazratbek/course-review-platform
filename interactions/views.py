@@ -7,6 +7,8 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.utils import timezone
 from rest_framework.generics import ListAPIView
 from .pagination import FavoritePagination, CourseViewHistoryPagination, UserActivityPagination
+from rest_framework.filters import SearchFilter
+from django_filters.rest_framework import DjangoFilterBackend
 
 class FavoriteToggleView(APIView):
     permission_classes = [IsAuthenticated]
@@ -18,6 +20,7 @@ class FavoriteToggleView(APIView):
         metadata = {"activity_type":"favorite","course_id": str(serializer.validated_data['course'].id),"time":timezone.now()}
 
         UserActivity.write_activity(user=request.user,activity_type='favorite',metadata=metadata)
+
         if not created:
             favorite.delete()
             return Response({
@@ -34,6 +37,8 @@ class FavoriteListView(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = FavoriteSerializer
     pagination_class = FavoritePagination
+    filter_backends = [DjangoFilterBackend,SearchFilter]
+    search_fields = ['course__title','course__description']
 
     def get_queryset(self):
         return  self.request.user.favorites.all().select_related('course')

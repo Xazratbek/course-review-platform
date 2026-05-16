@@ -3,7 +3,8 @@ from core.models import BaseModel
 from django.core.validators import MinValueValidator, MaxValueValidator
 from users.models import CustomUser
 from courses.models import Course
-
+from django.db import IntegrityError
+from rest_framework.exceptions import ValidationError
 
 class ReviewStatus(models.TextChoices):
     PENDING = "pending", "Tekshirilayotgan"
@@ -37,6 +38,48 @@ class Review(BaseModel):
 
     def __str__(self):
         return f"{self.user.username} - {self.course.title}"
+
+    def vote(self,vote_type):
+        try:
+
+            if vote_type == 'like':
+                self.likes_count += 1
+                self.save()
+            else:
+                self.dislikes_count += 1
+                self.save()
+
+        except IntegrityError:
+            return ValidationError({"vote_type":f"{vote_type}-soni 0-ga teng ayirib bo'lmaydi"})
+
+    def remove_vote(self, vote_type):
+        try:
+
+            if vote_type == 'like':
+                self.likes_count -= 1
+                self.save()
+            else:
+                self.dislikes_count -= 1
+                self.save()
+
+        except IntegrityError:
+            return ValidationError({"vote_type":f"{vote_type}-soni 0-ga teng ayirib bo'lmaydi"})
+
+    def change_vote(self, vote_type):
+        try:
+
+            if vote_type == 'like':
+                self.likes_count -= 1
+                self.dislikes_count += 1
+                self.save()
+
+            elif vote_type == 'dislike':
+                self.dislikes_count += 1
+                self.likes_count -= 1
+                self.save()
+
+        except IntegrityError:
+            return ValidationError({"vote_type":f"{vote_type}-soni 0-ga teng ayirib bo'lmaydi"})
 
     class Meta:
         db_table = "reviews"

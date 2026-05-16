@@ -10,6 +10,8 @@ from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.utils import timezone
 from interactions.models import UserActivity
+from rest_framework.filters import SearchFilter
+from django_filters.rest_framework import DjangoFilterBackend
 
 class CommentCreateView(CreateAPIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
@@ -87,6 +89,10 @@ class MyReviewListView(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = MiniReviewSerializer
 
+    filter_backends = [DjangoFilterBackend,SearchFilter]
+    filterset_fields = ['rating','is_verified_student']
+    search_fields = ['title','advantages','disadvantages','body']
+
     def get_queryset(self):
         return self.request.user.reviews.all()
 
@@ -134,28 +140,42 @@ class ReviewVoteToggleView(APIView):
         vote_type = request.data.get('vote_type','')
         serializer = ReviewVoteSerializer(data=request.data)
         if serializer.is_valid():
+            review = serializer.validated_data['review']
             vote = ReviewVote.objects.filter(user=request.user,review=serializer.validated_data['review']).first()
             if vote:
                 if vote.vote_type == vote_type:
                     vote.delete()
+                    review.remove_vote(vote_type)
+                    review.save()
                     return Response({
                         "status": status.HTTP_204_NO_CONTENT,
                         "message": f"{vote_type.title()}-o'chirildi"
                     }, status=status.HTTP_204_NO_CONTENT)
 
-                else:
-                    vote.vote_type == vote_type
+                elif vote_type == 'like' and vote.vote_type == 'dislike':
+                    vote.vote_type = 'like'
+                    review.change_vote(vote_type)
+                    review.save()
                     vote.save()
+
+                elif vote_type == 'dislike' and vote.vote_type == 'like':
+                    vote.vote_type = 'dislike'
+                    review.change_vote(vote_type)
+                    review.save()
+                    vote.save()
+
                     return Response({
                         "status": status.HTTP_200_OK,
                         "message": f"{vote_type.title()}d"
                     },status=status.HTTP_200_OK)
 
             else:
-                ReviewVote.objects.create(user=request.user,review=serializer.validated_data['review'],vote_type=vote_type)
+                vote = ReviewVote.objects.create(user=request.user,review=serializer.validated_data['review'],vote_type=vote_type)
+                review.vote(vote.vote_type)
+                review.save()
                 return Response({
                     "status": status.HTTP_201_CREATED,
-                    "message":f"{vote_type.title()}-ed"
+                    "message":f"{vote_type.title()}-d"
                 })
 
 class ReviewMediaUploadView(CreateAPIView):

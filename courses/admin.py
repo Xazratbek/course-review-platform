@@ -66,7 +66,7 @@ class MentorAdmin(admin.ModelAdmin):
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ['title', 'slug', 'category', 'mentor', 'course_center', 'level', 'price', 'average_rating', 'is_published', 'created_at']
+    list_display = ['id','title', 'slug', 'category', 'mentor', 'course_center', 'level', 'price', 'average_rating', 'is_published', 'created_at']
     list_filter = ['level', 'is_published', 'category', 'course_center', 'created_at']
     search_fields = ['title', 'slug', 'description']
     readonly_fields = ['id', 'created_at', 'updated_at', 'reviews_count', 'students_count']

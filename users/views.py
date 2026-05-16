@@ -4,10 +4,11 @@ from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializers import SignUpSerializer, MyTokenObtainPairSerializer,CustomUserSerializer
+from .serializers import SignUpSerializer, MyTokenObtainPairSerializer,CustomUserSerializer, PasswordChangeSerializer
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import CustomUser
 from .permissions import IsProfileOwner
+from rest_framework.permissions import IsAuthenticated
 
 class SignUpView(APIView):
     parser_classes = (MultiPartParser, FormParser)
@@ -92,3 +93,21 @@ class ProfileDeleteView(APIView):
             "status": status.HTTP_204_NO_CONTENT,
             'message':"Akkaunt o'chirildi",
         })
+
+class PasswordChangeView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        serializer = PasswordChangeSerializer(data=request.data,context={"request": request})
+        if serializer.is_valid():
+            user = request.user
+            user.set_password(serializer.validated_data['new_password'])
+            user.save()
+            return Response({
+                "status":status.HTTP_200_OK,
+                "message": "Parol o'zgartirildi"
+            },status=status.HTTP_200_OK)
+
+        return Response({
+            "errors":serializer.errors,
+            "status": status.HTTP_400_BAD_REQUEST
+        },status=status.HTTP_400_BAD_REQUEST)

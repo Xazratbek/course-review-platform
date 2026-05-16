@@ -1,3 +1,153 @@
-from django.shortcuts import render
+from typing import Any
 
-# Create your views here.
+from .serializers import *
+from .models import *
+from rest_framework.generics import ListAPIView, CreateAPIView, UpdateAPIView, RetrieveAPIView, DestroyAPIView
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
+from .pagination import ReviewListByCoursePagination
+from rest_framework.views import APIView
+from .permissions import IsReviewOwner
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.parsers import MultiPartParser, FormParser
+
+class CommentCreateView(CreateAPIView):
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    serializer_class = CommentCreateSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+class CommentsListByReviewView(ListAPIView):
+    serializer_class = CommentSerializer
+    lookup_field = 'id'
+    lookup_url_kwarg = 'uuid'
+
+    def get_queryset(self):
+        return Comment.objects.filter(
+            review_id=self.kwargs.get('uuid'),
+            parent=None
+        ).select_related(
+            'user'
+        ).prefetch_related(
+            'thread_replies__user',
+            'thread_replies__reply_to__user'
+        ).order_by('-created_at')
+
+class ReviewListByCourseView(ListAPIView):
+    serializer_class = ReviewDetailSerializer
+    lookup_field = 'slug'
+    lookup_url_kwarg = 'slug'
+    pagination_class = ReviewListByCoursePagination
+
+    def get_queryset(self):
+        return Review.objects.filter(course__slug=self.kwargs.get('slug')).select_related('user','course').prefetch_related('media')
+
+class ReviewCreateView(CreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ReviewCreateSerializer
+
+    def perform_create(self, serializer):
+        return serializer.save(user=self.request.user)
+
+class MyReviewListView(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = MiniReviewSerializer
+
+    def get_queryset(self):
+        return self.request.user.reviews.all()
+
+class ReviewUpdateView(UpdateAPIView):
+    serializer_class = ReviewUpdateSerializer
+    permission_classes = [IsReviewOwner]
+    lookup_field = 'id'
+    lookup_url_kwarg = 'uuid'
+
+    def get_queryset(self):
+        return Review.objects.all().select_related('user','course')
+
+class ReviewDeleteView(DestroyAPIView):
+    permission_classes = [IsReviewOwner]
+    lookup_field = 'id'
+    lookup_url_kwarg = 'uuid'
+
+    def get_queryset(self):
+        return Review.objects.all().select_related('user','course')
+
+class ReviewRetrieveView(RetrieveAPIView):
+    serializer_class = ReviewDetailSerializer
+    lookup_field = 'id'
+    lookup_url_kwarg = 'uuid'
+
+    def get_queryset(self):
+        return Review.objects.all().select_related('user','course').prefetch_related('media')
+
+
+
+class ReviewVoteToggleView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        vote_type = request.data.get('vote_type','')
+        serializer = ReviewVoteSerializer(data=request.data)
+        if serializer.is_valid():
+            vote = ReviewVote.objects.filter(user=request.user,review=serializer.validated_data['review']).first()
+            if vote:
+                if vote.vote_type == vote_type:
+                    vote.delete()
+                    return Response({
+                        "status": status.HTTP_204_NO_CONTENT,
+                        "message": f"{vote_type.title()}-o'chirildi"
+                    }, status=status.HTTP_204_NO_CONTENT)
+
+                else:
+                    vote.vote_type == vote_type
+                    vote.save()
+                    return Response({
+                        "status": status.HTTP_200_OK,
+                        "message": f"{vote_type.title()}d"
+                    },status=status.HTTP_200_OK)
+
+            else:
+                ReviewVote.objects.create(user=request.user,review=serializer.validated_data['review'],vote_type=vote_type)
+                return Response({
+                    "status": status.HTTP_201_CREATED,
+                    "message":f"{vote_type.title()}-ed"
+                })
+
+class ReviewMediaUploadView(CreateAPIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    serializer_class = ReviewMultipleMediaUploadSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = serializer.save()
+        return Response({
+            "status": status.HTTP_201_CREATED,
+            "message":f"{result['media_count']}-ta rasm yuklandi",
+            "review_id": result['review']
+        },status=status.HTTP_201_CREATED)
+
+class ReviewMediaDeleteView(DestroyAPIView):
+    permission_classes = [IsReviewOwner]
+    queryset = Review.objects.all().select_related('user').prefetch_related('media')
+    lookup_field = 'id'
+    lookup_url_kwarg = 'uuid'
+
+    def destroy(self, request, *args, **kwargs):
+        review = self.get_queryset().first()
+        if review.media.exists():
+            for media in review.media.all():
+                media.delete()
+
+            return Response({
+                "status": status.HTTP_204_NO_CONTENT,
+                "message": "Rasmlar o'chirildi"
+            },status=status.HTTP_204_NO_CONTENT)
+
+        return Response({
+            "status": status.HTTP_204_NO_CONTENT,
+            "message": f"sharxning media filelari mavjud emas"
+        },status=status.HTTP_204_NO_CONTENT)

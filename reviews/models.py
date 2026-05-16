@@ -23,9 +23,9 @@ class Review(BaseModel):
         validators=[MinValueValidator(1), MaxValueValidator(5)]
     )
     title = models.CharField(max_length=255)
-    advantages = models.TextField()
-    disadvantages = models.TextField()
-    body = models.TextField()
+    advantages = models.TextField(null=True,blank=True)
+    disadvantages = models.TextField(null=True,blank=True)
+    body = models.TextField(null=True,blank=True)
     is_verified_student = models.BooleanField(default=False)
     likes_count = models.PositiveIntegerField(default=0)
     dislikes_count = models.PositiveIntegerField(default=0)
@@ -81,10 +81,31 @@ class ReviewMedia(BaseModel):
 
 
 class Comment(BaseModel):
-    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name='comments')
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='comments')
+    review = models.ForeignKey(
+        Review,
+        on_delete=models.CASCADE,
+        related_name='comments'
+    )
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='comments'
+    )
     body = models.TextField()
-    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='thread_replies'
+    )
+    reply_to = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='direct_replies'
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.review.id}"

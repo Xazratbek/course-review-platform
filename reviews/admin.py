@@ -14,7 +14,7 @@ class CommentInline(admin.TabularInline):
 
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ['user', 'course', 'rating', 'status', 'is_verified_student', 'likes_count', 'dislikes_count', 'created_at']
+    list_display = ['id','user', 'course', 'rating', 'status', 'is_verified_student', 'likes_count', 'dislikes_count', 'created_at']
     list_filter = ['status', 'rating', 'is_verified_student', 'created_at']
     search_fields = ['user__username', 'course__title', 'title', 'body']
     readonly_fields = ['id', 'created_at', 'updated_at', 'likes_count', 'dislikes_count']
@@ -61,13 +61,13 @@ class ReviewMediaAdmin(admin.ModelAdmin):
 
 @admin.register(Comment)
 class CommentAdmin(admin.ModelAdmin):
-    list_display = ['user', 'review', 'parent', 'created_at']
+    list_display = ['id','user', 'review','body', 'parent', 'reply_to','created_at']
     list_filter = ['created_at']
     search_fields = ['user__username', 'review__title', 'body']
     readonly_fields = ['id', 'created_at', 'updated_at']
     fieldsets = (
         ('Comment Info', {
-            'fields': ('user', 'review', 'parent')
+            'fields': ('user', 'review', 'parent','reply_to')
         }),
         ('Content', {
             'fields': ('body',)

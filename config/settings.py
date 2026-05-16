@@ -1,18 +1,20 @@
 from pathlib import Path
-from django.conf import global_settings
 from datetime import timedelta
+
+import environ
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-fpozbq1cntjvyx0_7bj9*yjygv@v%hz7444rxqd#0i#0ns3+r!'
+env = environ.Env()
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+environ.Env.read_env(BASE_DIR / '.env')
 
-ALLOWED_HOSTS = []
+SECRET_KEY = env('SECRET_KEY')
 
+DEBUG = env.bool('DEBUG')
 
-# Application definition
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -119,15 +121,17 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    'DEFAUL_FILTER_BACKENDS':(
+    'DEFAULT_FILTER_BACKENDS':(
         'django_filters.rest_framework.DjangoFilterBackend'
     )
 }
 
-SUPABASE_PROJECT_ID = 'wtgqbvopeivirjmzejft'
+SUPABASE_PROJECT_ID = env('SUPABASE_PROJECT_ID')
 
-AWS_ACCESS_KEY_ID = '51afd7220cf6016a3f6f251c65a4f519'
-AWS_SECRET_ACCESS_KEY = '16110afc963c450a1477c4217d01c942c31c5cc71618352a2de3d673af49826c'
+AWS_ACCESS_KEY_ID = env('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = env('AWS_SECRET_ACCESS_KEY')
+
+AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME')
 
 AWS_STORAGE_BUCKET_NAME = 'my-django-bucket'
 

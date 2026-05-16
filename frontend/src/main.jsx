@@ -17,7 +17,6 @@ import {
   LogIn,
   Menu,
   MessageSquareText,
-  RotateCcw,
   Search,
   Send,
   Settings,
@@ -218,7 +217,7 @@ function Sidebar({ collapsed, setCollapsed, active, setActive, user, onProfileCl
   );
 }
 
-function Topbar({ draftSearch, setDraftSearch, onSearch, user, onLoginClick }) {
+function Topbar({ draftSearch, setDraftSearch, onSearch, user, onLoginClick, onLogout }) {
   return (
     <header className="topbar">
       <div>
@@ -244,6 +243,11 @@ function Topbar({ draftSearch, setDraftSearch, onSearch, user, onLoginClick }) {
           {user ? <UserRound size={18} /> : <LogIn size={18} />}
           <span>{user ? user.username : 'Kirish'}</span>
         </button>
+        {user && (
+          <button className="pill-btn" onClick={onLogout}>
+            <span>Chiqish</span>
+          </button>
+        )}
       </div>
     </header>
   );
@@ -357,8 +361,28 @@ function CourseList({ courses, loading, selectedId, setSelectedId, filters, setF
       mentor: { full_name: 'Sara Green' },
     },
   ];
-  const hasActiveFilters = Boolean(filters.level || filters.language || filters.certificate || filters.category);
-  const list = courses.length ? courses : hasActiveFilters ? [] : fallback;
+  const normalizeValue = (value) => String(value || '').trim().toLowerCase();
+  const languageMap = { uzbek: 'uz', uz: 'uz', russian: 'ru', ru: 'ru', english: 'en', en: 'en' };
+  const selectedLanguage = languageMap[normalizeValue(filters.language)] || normalizeValue(filters.language);
+
+  const baseList = courses.length ? courses : fallback;
+  const list = baseList.filter((course) => {
+    if (filters.level && normalizeValue(course.level) !== normalizeValue(filters.level)) return false;
+
+    if (selectedLanguage) {
+      const courseLanguage = languageMap[normalizeValue(course.language)] || normalizeValue(course.language);
+      if (courseLanguage !== selectedLanguage) return false;
+    }
+
+    if (filters.certificate !== '') {
+      const certificateValue = Boolean(course.certificate_available);
+      const expected = filters.certificate === 'true';
+      if (certificateValue !== expected) return false;
+    }
+
+    if (filters.category && String(course.category?.id || course.category) !== String(filters.category)) return false;
+    return true;
+  });
 
   return (
     <section className="content-panel reveal">
@@ -579,7 +603,7 @@ function ExploreSection({ active, courses, categories, centers, mentors, tags, l
   );
 }
 
-function WorkspaceView({ active, user, selectedCourse, onReview }) {
+function WorkspaceView({ active, user, selectedCourse, onReview, onEditProfile, onLogout }) {
   return (
     <section className="workspace-view reveal">
       <div className="workspace-header">
@@ -594,7 +618,7 @@ function WorkspaceView({ active, user, selectedCourse, onReview }) {
           <UserRound size={24} />
           <h3>{user?.username || 'Guest'}</h3>
           <p>{user?.email || 'Login qiling va profilingizni boshqaring.'}</p>
-          <button>Profilni tahrirlash</button>
+          <button onClick={onEditProfile}>Profilni tahrirlash</button>
         </article>
         <article className="action-card">
           <Heart size={24} />
@@ -606,7 +630,7 @@ function WorkspaceView({ active, user, selectedCourse, onReview }) {
           <Bell size={24} />
           <h3>Notifications</h3>
           <p>Sharh, reply va system xabarlar shu yerda ko‘rinadi.</p>
-          <button>Mark as read</button>
+          {user ? <button onClick={onLogout}>Tizimdan chiqish</button> : <button>Mark as read</button>}
         </article>
       </div>
     </section>
@@ -718,6 +742,52 @@ function LoginModal({ open, onClose, onUser }) {
   );
 }
 
+
+function EditProfileModal({ open, user, onClose, onSaved }) {
+  const [form, setForm] = useState({ username: user?.username || '', email: user?.email || '', phone_number: user?.phone_number || '' });
+  const [status, setStatus] = useState({ loading: false, error: '' });
+
+  useEffect(() => {
+    if (!open) return;
+    setForm({
+      username: user?.username || '',
+      email: user?.email || '',
+      phone_number: user?.phone_number || '',
+    });
+    setStatus({ loading: false, error: '' });
+  }, [open, user]);
+
+  if (!open) return null;
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setStatus({ loading: true, error: '' });
+    try {
+      const payload = await api.updateProfile(form);
+      onSaved(payload?.data || { ...user, ...form });
+      onClose();
+    } catch (error) {
+      setStatus({ loading: false, error: error.message });
+    }
+  };
+
+  return (
+    <div className="modal-backdrop">
+      <form className="login-modal" onSubmit={submit}>
+        <button className="modal-close" type="button" onClick={onClose} aria-label="Yopish"><X size={18} /></button>
+        <h3>Profilni tahrirlash</h3>
+        <label>Username <input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} required /></label>
+        <label>Email <input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
+        <label>Phone <input value={form.phone_number} onChange={(event) => setForm({ ...form, phone_number: event.target.value })} /></label>
+        {status.error && <div className="form-error">{status.error}</div>}
+        <button className="primary-btn" disabled={status.loading}>
+          {status.loading ? <Loader2 className="spin" size={18} /> : 'Saqlash'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function App() {
   const [collapsed, setCollapsed] = useState(() => window.matchMedia('(max-width: 920px)').matches);
   const [active, setActive] = useState('Courses');
@@ -727,6 +797,7 @@ function App() {
   const [selectedId, setSelectedId] = useState(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [user, setUser] = useState(getStoredUser());
   const { categories, courses, centers, mentors, tags, loading, error } = usePlatformData({ ...filters, search: query });
 
@@ -742,6 +813,12 @@ function App() {
   }, [courses, selectedId]);
 
   const isExplore = ['Courses', 'Centers', 'Mentors', 'Tags'].includes(active);
+
+  const handleLogout = () => {
+    logout();
+    setUser(null);
+    setActive('Courses');
+  };
 
   const submitSearch = (event) => {
     event.preventDefault();
@@ -766,6 +843,7 @@ function App() {
           onSearch={submitSearch}
           user={user}
           onLoginClick={() => (user ? setActive('Profile') : setLoginOpen(true))}
+          onLogout={handleLogout}
         />
         {error && <div className="api-alert">{error}</div>}
 
@@ -787,11 +865,24 @@ function App() {
             onReview={() => setReviewOpen(true)}
           />
         ) : (
-          <WorkspaceView active={active} user={user} selectedCourse={selectedCourse} onReview={() => setReviewOpen(true)} />
+          <WorkspaceView
+            active={active}
+            user={user}
+            selectedCourse={selectedCourse}
+            onReview={() => setReviewOpen(true)}
+            onEditProfile={() => setEditProfileOpen(true)}
+            onLogout={handleLogout}
+          />
         )}
       </main>
       <ReviewModal open={reviewOpen} onClose={() => setReviewOpen(false)} course={selectedCourse} />
       <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} onUser={setUser} />
+      <EditProfileModal
+        open={editProfileOpen}
+        user={user}
+        onClose={() => setEditProfileOpen(false)}
+        onSaved={setUser}
+      />
       <button className="mobile-menu" onClick={() => setCollapsed(false)} aria-label="Menu">
         <Menu size={20} />
       </button>

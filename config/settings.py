@@ -14,7 +14,7 @@ SECRET_KEY = env('SECRET_KEY')
 
 DEBUG = env.bool('DEBUG')
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
+ALLOWED_HOSTS = ['127.0.0.1','localhost','0.0.0.0']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -120,9 +120,6 @@ STATIC_URL = 'static/'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
-    'DEFAULT_FILTER_BACKENDS':(
-        'django_filters.rest_framework.DjangoFilterBackend'
     )
 }
 
@@ -135,8 +132,9 @@ AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME')
 
 AWS_STORAGE_BUCKET_NAME = 'my-django-bucket'
 
-AWS_S3_ENDPOINT_URL = f'https://{SUPABASE_PROJECT_ID}.supabase.co/storage/v1/s3'
+AWS_S3_ENDPOINT_URL = f'https://{SUPABASE_PROJECT_ID}.storage.supabase.co/storage/v1/s3'
 AWS_S3_CUSTOM_DOMAIN = f'{SUPABASE_PROJECT_ID}.supabase.co/storage/v1/object/public/{AWS_STORAGE_BUCKET_NAME}'
+AWS_S3_REGION_NAME = "ap-southeast-1"
 
 AWS_DEFAULT_ACL = None
 AWS_S3_FILE_OVERWRITE = True

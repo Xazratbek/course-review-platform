@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import SignUpSerializer, MyTokenObtainPairSerializer,CustomUserSerializer, PasswordChangeSerializer
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.parsers import MultiPartParser, FormParser
 from .models import CustomUser
 from .permissions import IsProfileOwner
 from rest_framework.permissions import IsAuthenticated
@@ -14,7 +14,6 @@ class SignUpView(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request):
-
         serializer = SignUpSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()

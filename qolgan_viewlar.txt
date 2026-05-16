@@ -1,0 +1,46 @@
+reviews
+
+ReviewListByCourseView - ListAPIView. Course detail ichida approved reviewlar chiqadi.
+ReviewCreateView - CreateAPIView. User kursga review yozadi; user=request.user, course URL yoki bodydan olinadi.
+MyReviewListView - ListAPIView. User o‘z yozgan reviewlarini ko‘radi.
+ReviewUpdateDeleteView - RetrieveUpdateDestroyAPIView. Faqat review egasi edit/delete qiladi.
+ReviewVoteToggleView - APIView. Toggle logic bor: like bo‘lsa dislikega o‘zgartirish, bor bo‘lsa o‘chirish.
+ReviewMediaUploadView - CreateAPIView. Reviewga rasm upload.
+ReviewMediaDeleteView - DestroyAPIView. Faqat media egasi yoki review egasi o‘chiradi.
+CommentListCreateView - ListCreateAPIView. Review commentlarini ko‘rsatadi va yangi comment yaratadi.
+CommentReplyCreateView - CreateAPIView. Parent commentga reply yozadi.
+CommentUpdateDeleteView - RetrieveUpdateDestroyAPIView. User o‘z commentini edit/delete qiladi.
+ReviewCreateSerializer - create paytida rating/title/body/advantages/disadvantages validate.
+ReviewListSerializer - listda qisqa fieldlar, user mini info bilan.
+ReviewUpdateSerializer - faqat editable fieldlar.
+ReviewVoteSerializer - vote_type validate.
+ReviewMediaSerializer - image upload/list.
+CommentSerializer - comment va replies tree uchun.
+
+interactions
+
+FavoriteToggleView - APIView. Toggle logic bor: mavjud bo‘lsa delete, yo‘q bo‘lsa create.
+FavoriteListView - ListAPIView. User favorites ro‘yxati.
+CourseViewHistoryCreateView - APIView yoki course detail ichida service. Tizim avtomatik yozadi, user form qilmaydi.
+MyCourseViewHistoryView - ListAPIView. Recently viewed kurslar.
+FavoriteSerializer - favorite listda course mini data ko‘rsatadi.
+FavoriteToggleSerializer - faqat course_id qabul qiladi.
+CourseViewHistorySerializer - recently viewed list uchun.
+UserActivitySerializer - admin/debug/internal log uchun, user UI shart emas.
+
+moderation
+
+ReportCreateView - CreateAPIView. User review report qiladi.
+MyReportListView - ListAPIView. User report statusini ko‘radi.
+ModerationActionListCreateView - ListCreateAPIView. Faqat moderator/admin uchun.
+ReportCreateSerializer - review, reason validate.
+ReportListSerializer - report status, reason, review qisqa info.
+ModerationActionSerializer - action, reason, moderator info.
+
+notifications
+
+NotificationListView - ListAPIView. User o‘z notificationlarini ko‘radi.
+NotificationMarkReadView - UpdateAPIView yoki APIView. Bitta notification is_read=True.
+NotificationMarkAllReadView - APIView. Bulk update kerak, shuning uchun genericdan ko‘ra APIView qulay.
+NotificationSerializer - list/detail uchun title, body, type, is_read, created_at.
+NotificationUpdateSerializer - faqat is_read update uchun.

@@ -13,5 +13,5 @@ urlpatterns = [
     path("tags/", CourseTagListView.as_view(), name="course-tags"),
 
     path('',CourseListView.as_view(),name='course-list'),
-    path('<str:slug>/',CourseRetrieveView.as_view(),name='course-detail')
+    path('<slug:slug>/',CourseRetrieveView.as_view(),name='course-detail')
 ]

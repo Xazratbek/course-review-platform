@@ -1,21 +1,25 @@
-from typing import Any
-
 from .serializers import *
 from .models import *
-from rest_framework.generics import ListAPIView, CreateAPIView, UpdateAPIView, RetrieveAPIView, DestroyAPIView
+from rest_framework.generics import ListAPIView, CreateAPIView, UpdateAPIView, RetrieveAPIView, DestroyAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
 from .pagination import ReviewListByCoursePagination
 from rest_framework.views import APIView
-from .permissions import IsReviewOwner
+from .permissions import IsReviewOwner, IsCommentOwner
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
+from django.utils import timezone
+from interactions.models import UserActivity
 
 class CommentCreateView(CreateAPIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
     serializer_class = CommentCreateSerializer
 
     def perform_create(self, serializer):
+        metadata = {"activity_type":"comment create","comment_id": str(self.get_object().id),"time":timezone.now()}
+
+        UserActivity.write_activity(user=request.user,activity_type='comment',metadata=metadata)
+
         serializer.save(user=self.request.user)
 
 class CommentsListByReviewView(ListAPIView):
@@ -26,6 +30,31 @@ class CommentsListByReviewView(ListAPIView):
     def get_queryset(self):
         return Comment.objects.filter(
             review_id=self.kwargs.get('uuid'),
+            parent=None
+        ).select_related(
+            'user'
+        ).prefetch_related(
+            'thread_replies__user',
+            'thread_replies__reply_to__user'
+        ).order_by('-created_at')
+
+class CommentUpdateDeleteView(RetrieveUpdateDestroyAPIView):
+    serializer_class = CommentSerializer
+    permission_classes = [IsCommentOwner]
+    parser_classes = [MultiPartParser,FormParser]
+    lookup_field = 'id'
+    lookup_url_kwarg = 'uuid'
+
+    def update(self, request, *args, **kwargs):
+        metadata = {"activity_type":"destroy comment","comment_id": str(self.get_queryset().first().id),"time":timezone.now()}
+
+        UserActivity.write_activity(user=request.user,activity_type='comment',metadata=metadata)
+
+        return super().update(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return Comment.objects.filter(
+            id=self.kwargs.get('uuid'),
             parent=None
         ).select_related(
             'user'
@@ -48,7 +77,11 @@ class ReviewCreateView(CreateAPIView):
     serializer_class = ReviewCreateSerializer
 
     def perform_create(self, serializer):
-        return serializer.save(user=self.request.user)
+        review = serializer.save(user=self.request.user)
+        metadata = {"activity_type":"review create","review_id": str(review.id),"time":timezone.now()}
+
+        UserActivity.write_activity(user=self.request.user,activity_type='review',metadata=metadata)
+        return review
 
 class MyReviewListView(ListAPIView):
     permission_classes = [IsAuthenticated]
@@ -63,6 +96,12 @@ class ReviewUpdateView(UpdateAPIView):
     lookup_field = 'id'
     lookup_url_kwarg = 'uuid'
 
+    def put(self, request, *args, **kwargs):
+        metadata = {"activity_type":"review update","review_id": str(self.get_queryset().first().id),"time":timezone.now()}
+
+        UserActivity.write_activity(user=self.request.user,activity_type='review',metadata=metadata)
+        return super().put(request, *args, **kwargs)
+
     def get_queryset(self):
         return Review.objects.all().select_related('user','course')
 
@@ -70,6 +109,12 @@ class ReviewDeleteView(DestroyAPIView):
     permission_classes = [IsReviewOwner]
     lookup_field = 'id'
     lookup_url_kwarg = 'uuid'
+
+    def destroy(self, request, *args, **kwargs):
+        metadata = {"activity_type":"destroy review","review_id": str(self.get_queryset().first().id),"time":timezone.now()}
+
+        UserActivity.write_activity(user=request.user,activity_type='review',metadata=metadata)
+        return super().destroy(request, *args, **kwargs)
 
     def get_queryset(self):
         return Review.objects.all().select_related('user','course')
@@ -81,8 +126,6 @@ class ReviewRetrieveView(RetrieveAPIView):
 
     def get_queryset(self):
         return Review.objects.all().select_related('user','course').prefetch_related('media')
-
-
 
 class ReviewVoteToggleView(APIView):
     permission_classes = [IsAuthenticated]

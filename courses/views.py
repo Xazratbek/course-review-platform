@@ -5,6 +5,8 @@ from rest_framework.generics import ListAPIView, RetrieveAPIView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from .pagination import *
+from interactions.models import CourseViewHistory, UserActivity
+from django.utils.timezone import now
 
 class CategoryListView(ListAPIView):
     queryset = Category.objects.all()
@@ -25,6 +27,13 @@ class CourseCenterRetrieveView(RetrieveAPIView):
     lookup_field = 'slug'
     lookup_url_kwarg = 'slug'
 
+    def retrieve(self, request, *args, **kwargs):
+        metadata = {"activity_type":"view","course_center_id": str(self.get_queryset().first().id),"view":"course_center","time":str(now())}
+
+        UserActivity.objects.create(user=request.user,activity_type='view',metadata=metadata)
+
+        return super().retrieve(request, *args, **kwargs)
+
 class MentorListView(ListAPIView):
     queryset = Mentor.objects.prefetch_related(Prefetch(
         'courses',queryset=Course.objects.filter(is_published=True).only('id', 'title', 'slug', 'thumbnail', 'price','average_rating', 'course_center', 'level')
@@ -40,6 +49,13 @@ class MentorRetrieveView(RetrieveAPIView):
     serializer_class = MentorDetailSerializer
     lookup_field = 'slug'
     lookup_url_kwarg = 'slug'
+
+    def retrieve(self, request, *args, **kwargs):
+        metadata = {"activity_type":"view","mentor_id": str(self.get_queryset().first().id),"view":"mentor","time":str(now())}
+
+        UserActivity.objects.create(user=request.user,activity_type='view',metadata=metadata)
+
+        return super().retrieve(request, *args, **kwargs)
 
 class CourseTagListView(ListAPIView):
     queryset = CourseTag.objects.all()
@@ -57,7 +73,16 @@ class CourseListView(ListAPIView):
     filter_fields = ['price','category','course_center','language','level','certificate_available']
 
 class CourseRetrieveView(RetrieveAPIView):
-    queryset = Course.objects.filter(is_published=True).select_related('category','mentor','course_center').prefetch_related('tags')
     serializer_class = CourseSerializer
     lookup_field = 'slug'
     lookup_url_kwarg = 'slug'
+
+    def get_queryset(self):
+        return Course.objects.filter(slug=self.kwargs.get('slug')).select_related('category','mentor','course_center').prefetch_related('tags')
+
+    def retrieve(self, request, *args, **kwargs):
+        metadata = {"activity_type":"view","course_id": str(self.get_queryset().first().id),"view":"course","time":str(now())}
+
+        UserActivity.objects.create(user=request.user,activity_type='view',metadata=metadata)
+        CourseViewHistory.objects.get_or_create(user=request.user,course=self.get_queryset().first())
+        return super().retrieve(request, *args, **kwargs)

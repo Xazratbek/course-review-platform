@@ -52,6 +52,10 @@ class UserActivity(BaseModel):
     def __str__(self):
         return f"{self.user.username} - {self.activity_type}"
 
+    @staticmethod
+    def write_activity(user: CustomUser,activity_type: ActivityType,metadata):
+        return UserActivity.objects.create(user=user,activity_type=activity_type,metadata=metadata)
+
     class Meta:
         db_table = "user_activities"
         verbose_name = "Foydalanuvchi faoliyati"

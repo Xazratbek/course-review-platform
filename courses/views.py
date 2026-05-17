@@ -87,3 +87,11 @@ class CourseRetrieveView(RetrieveAPIView):
         CourseViewHistory.objects.get_or_create(user=request.user,course=self.get_queryset().first())
 
         return super().retrieve(request, *args, **kwargs)
+
+class CourseTagItemBySlugListView(ListAPIView):
+    serializer_class = CourseTagItemSerializer
+    lookup_field = 'slug'
+    lookup_url_kwarg = 'slug'
+
+    def get_queryset(self):
+        return CourseTagItem.objects.filter(course__slug__iexact=self.kwargs.get('slug')).select_related("course",'tag')

@@ -2,7 +2,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .models import *
 from .serializers import *
-from rest_framework.generics import ListAPIView
+from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
@@ -59,3 +59,9 @@ class NotificationListView(ListAPIView):
 
     def get_queryset(self):
         return self.request.user.notifications.filter(is_read=False)
+
+class NotificationRetrieveView(RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = NotificationSerializer
+    lookup_field = 'id'
+    lookup_url_kwarg = 'uuid'

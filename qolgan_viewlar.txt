@@ -44,3 +44,24 @@ NotificationMarkReadView - UpdateAPIView yoki APIView. Bitta notification is_rea
 NotificationMarkAllReadView - APIView. Bulk update kerak, shuning uchun genericdan ko‘ra APIView qulay.
 NotificationSerializer - list/detail uchun title, body, type, is_read, created_at.
 NotificationUpdateSerializer - faqat is_read update uchun.
+
+Yetishmayotgan viewlar (hozirgi holat bo‘yicha)
+To‘liq alohida Course Detail route page (hozir dashboard ichida detail panel ko‘rinishida).
+
+To‘liq Review Detail + threaded comments CRUD view (modal/form bor, lekin full review detail sahifasi alohida emas).
+
+Notification Detail page (item bosilganda mark-read bo‘ladi, ammo dedicated detail page yo‘q).
+
+Reports management view (hozir My Reviews bilan bir flowda ko‘rsatilgan, alohida report create/list yo‘q).
+
+Profile view/edit split screens (edit modal bor, lekin alohida profile settings sahifasi yo‘q).
+
+Tavsiya etiladigan 3 ta yangi feature (backendga tegmasdan faqat tavsiya)
+Saved Search & Smart Alerts
+User filterlarini (category/level/language) saqlab qo‘yadi, yangi mos kurs/review chiqsa notification keladi.
+
+Comparison Mode (Course vs Course)
+2-3 kursni yonma-yon solishtirish: narx, rating, mentor, certificate, davomiylik.
+
+Reputation & Trust Layer
+Reviewlarga “helpful” score, verified-student weight, spam risk score; sorting “eng ishonchli sharhlar” bo‘yicha.

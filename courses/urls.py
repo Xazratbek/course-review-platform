@@ -11,6 +11,7 @@ urlpatterns = [
     path('mentors/<str:slug>/',MentorRetrieveView.as_view(),name='mentor-detail'),
 
     path("tags/", CourseTagListView.as_view(), name="course-tags"),
+    path("tags/<slug:slug>/", CourseTagItemBySlugListView.as_view(), name="course-tags-by-slug"),
 
     path('',CourseListView.as_view(),name='course-list'),
     path('<slug:slug>/',CourseRetrieveView.as_view(),name='course-detail')

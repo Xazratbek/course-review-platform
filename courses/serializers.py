@@ -14,10 +14,12 @@ class CourseCenterSerializer(serializers.ModelSerializer):
             "telegram_url", "instagram_url", "verified",
         ]
         read_only_fields = ["verified"]
+
 class CourseMiniSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
         fields = ["id", "title", "slug", "thumbnail", "price",'average_rating', 'course_center', 'level']
+
 class MentorListSerializer(serializers.ModelSerializer):
     courses = CourseMiniSerializer(many=True, read_only=True)
     class Meta:
@@ -38,6 +40,7 @@ class CourseTagItemSerializer(serializers.ModelSerializer):
     id = serializers.ReadOnlyField(source='tag.id')
     name = serializers.ReadOnlyField(source='tag.name')
     slug = serializers.ReadOnlyField(source='tag.slug')
+
     class Meta:
         model = CourseTagItem
         fields = ['id','name','slug']

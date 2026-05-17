@@ -1,179 +1,117 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 const STORAGE_KEY = 'course-review-platform-auth';
 
-function joinUrl(path) {
-  return `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
-}
+const joinUrl = (path) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+const getSession = () => JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+const setSession = (session) => localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+const clearSession = () => localStorage.removeItem(STORAGE_KEY);
 
-function authHeaders() {
-  const session = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-  return session?.access ? { Authorization: `Bearer ${session.access}` } : {};
-}
+const authHeaders = () => {
+  const s = getSession();
+  return s?.access ? { Authorization: `Bearer ${s.access}` } : {};
+};
 
-function getSession() {
-  return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-}
-
-function setSession(session) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-}
-
-function clearSession() {
-  localStorage.removeItem(STORAGE_KEY);
-}
-
-function buildQuery(params = {}) {
-  const query = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') query.set(key, value);
-  });
-  const text = query.toString();
-  return text ? `?${text}` : '';
-}
+const buildQuery = (params = {}) => {
+  const q = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => v !== '' && v !== undefined && v !== null && q.set(k, v));
+  return q.toString() ? `?${q.toString()}` : '';
+};
 
 async function fetchJson(path, options = {}) {
-  const { skipRefresh, ...fetchOptions } = options;
-  const response = await fetch(joinUrl(path), {
-    ...fetchOptions,
-    headers: {
-      Accept: 'application/json',
-      ...(fetchOptions.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-      ...authHeaders(),
-      ...fetchOptions.headers,
-    },
-  });
-
+  const { response } = await (async () => {
+    const r = await fetch(joinUrl(path), {
+      ...options,
+      headers: {
+        Accept: 'application/json',
+        ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+        ...authHeaders(),
+        ...options.headers,
+      },
+    });
+    return { response: r };
+  })();
   let payload = null;
-  try {
-    payload = await response.json();
-  } catch {
-    payload = null;
-  }
-
+  try { payload = await response.json(); } catch { payload = null; }
   return { response, payload };
 }
 
 async function refreshAccessToken() {
-  const session = getSession();
-  if (!session?.refresh) return null;
-  const { response, payload } = await fetchJson('/token/refresh/', {
-    method: 'POST',
-    body: JSON.stringify({ refresh: session.refresh }),
-  });
-  if (!response.ok || !payload?.access) {
-    clearSession();
-    return null;
-  }
-  const nextSession = { ...session, access: payload.access };
-  setSession(nextSession);
+  const s = getSession();
+  if (!s?.refresh) return null;
+  const { response, payload } = await fetchJson('/token/refresh/', { method: 'POST', body: JSON.stringify({ refresh: s.refresh }) });
+  if (!response.ok || !payload?.access) return clearSession(), null;
+  setSession({ ...s, access: payload.access });
   return payload.access;
 }
 
 async function request(path, options = {}) {
   let { response, payload } = await fetchJson(path, options);
-
   if (response.status === 401 && !options.skipRefresh) {
     const access = await refreshAccessToken();
-    if (access) {
-      ({ response, payload } = await fetchJson(path, {
-        ...options,
-        headers: { ...options.headers, Authorization: `Bearer ${access}` },
-        skipRefresh: true,
-      }));
-    }
+    if (access) ({ response, payload } = await fetchJson(path, { ...options, skipRefresh: true, headers: { ...options.headers, Authorization: `Bearer ${access}` } }));
   }
-
-  if (!response.ok) {
-    const message = payload?.detail || payload?.message || 'API request failed';
-    throw new Error(typeof message === 'string' ? message : JSON.stringify(message));
-  }
-
+  if (!response.ok) throw new Error(payload?.detail || payload?.message || JSON.stringify(payload) || 'API xatosi');
   return payload;
 }
 
-function decodeJwt(token) {
-  if (!token) return null;
-  try {
-    const [, payload] = token.split('.');
-    return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
-  } catch {
-    return null;
-  }
-}
+const decodeJwt = (token) => {
+  try { return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); } catch { return null; }
+};
 
-export function assetUrl(value) {
-  if (!value) return '';
-  if (/^https?:\/\//.test(value)) return value;
-  const base = API_BASE === '/api' ? 'http://127.0.0.1:8000' : API_BASE.replace(/\/$/, '');
-  return `${base}${value.startsWith('/') ? value : `/${value}`}`;
-}
+export const normalizeList = (x) => (Array.isArray(x) ? x : x?.results || x?.data || []);
+export const getStoredUser = () => getSession()?.user || null;
+export const logout = () => clearSession();
 
 export async function login(credentials) {
   const payload = await request('/accounts/login/', { method: 'POST', body: JSON.stringify(credentials) });
   const user = decodeJwt(payload.access) || { username: credentials.username };
-  const session = { ...payload, user };
-  setSession(session);
+  setSession({ ...payload, user });
   return user;
-}
-
-export async function signup(values, options = {}) {
-  const { onProgress } = options;
-  const formData = new FormData();
-  Object.entries(values).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') formData.append(key, value);
-  });
-
-  const payload = await new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', joinUrl('/accounts/signup/'));
-    xhr.setRequestHeader('Accept', 'application/json');
-    xhr.upload.onprogress = (event) => {
-      if (!onProgress || !event.lengthComputable) return;
-      onProgress(Math.round((event.loaded / event.total) * 100));
-    };
-    xhr.onload = () => {
-      const result = JSON.parse(xhr.responseText || '{}');
-      if (xhr.status >= 200 && xhr.status < 300) return resolve(result);
-      reject(new Error(result?.detail || result?.message || 'Signup failed'));
-    };
-    xhr.onerror = () => reject(new Error('Tarmoq xatosi'));
-    xhr.send(formData);
-  });
-
-  const user = payload.user || decodeJwt(payload.access) || { username: values.username };
-  setSession({ access: payload.access, refresh: payload.refresh, user });
-  return user;
-}
-
-export function logout() {
-  clearSession();
-}
-
-export function getStoredUser() {
-  return getSession()?.user || null;
 }
 
 export const api = {
-  getCategories: () => request('/course/categories/'),
-  getCourses: (params) => request(`/course/${buildQuery(params)}`),
-  getCourse: (slug) => request(`/course/${slug}/`),
-  getCenters: (params) => request(`/course/centers/${buildQuery(params)}`),
-  getMentors: (params) => request(`/course/mentors/${buildQuery(params)}`),
-  getTags: (params) => request(`/course/tags/${buildQuery(params)}`),
+  signup: (formData) => request('/accounts/signup/', { method: 'POST', body: formData }),
   getProfile: () => request('/accounts/my/profile/'),
   updateProfile: (formData) => request('/accounts/update/', { method: 'PATCH', body: formData }),
   deleteProfile: () => request('/accounts/delete/', { method: 'DELETE' }),
   changePassword: (payload) => request('/accounts/password/change/', { method: 'POST', body: JSON.stringify(payload) }),
-  getNotifications: () => request('/notifications/'),
-  getFavorites: () => request('/interactions/favorites/my/'),
+
+  getCategories: () => request('/course/categories/'),
+  getCenters: (params) => request(`/course/centers/${buildQuery(params)}`),
+  getCenter: (slug) => request(`/course/centers/${slug}/`),
+  getMentors: (params) => request(`/course/mentors/${buildQuery(params)}`),
+  getMentor: (slug) => request(`/course/mentors/${slug}/`),
+  getTags: (params) => request(`/course/tags/${buildQuery(params)}`),
+  getTagItemsByCourseSlug: (slug) => request(`/course/tags/${slug}/`),
+  getCourses: (params) => request(`/course/${buildQuery(params)}`),
+  getCourse: (slug) => request(`/course/${slug}/`),
+
+  getCommentsByReview: (reviewId) => request(`/reviews/comments/by_review/${reviewId}/`),
+  createComment: (payload) => request('/reviews/comments/comment/', { method: 'POST', body: JSON.stringify(payload) }),
+  updateComment: (id, formData) => request(`/reviews/comments/comment/${id}/`, { method: 'PATCH', body: formData }),
+  deleteComment: (id) => request(`/reviews/comments/comment/${id}/`, { method: 'DELETE' }),
+  getReviewsByCourse: (slug) => request(`/reviews/by_course/${slug}/`),
+  createReview: (payload) => request('/reviews/create/', { method: 'POST', body: JSON.stringify(payload) }),
   getMyReviews: (params) => request(`/reviews/my/${buildQuery(params)}`),
+  getReview: (id) => request(`/reviews/${id}/`),
   updateReview: (id, payload) => request(`/reviews/update/${id}/`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteReview: (id) => request(`/reviews/delete/${id}/`, { method: 'DELETE' }),
-  getReview: (id) => request(`/reviews/${id}/`),
-  createReview: (payload) => request('/reviews/create/', { method: 'POST', body: JSON.stringify(payload) }),
+  voteReview: (payload) => request('/reviews/vote/', { method: 'POST', body: JSON.stringify(payload) }),
+  uploadReviewMedia: (formData) => request('/reviews/media/upload/', { method: 'POST', body: formData }),
   deleteReviewMedia: (id) => request(`/reviews/media/delete/${id}/`, { method: 'DELETE' }),
+
+  toggleFavorite: (payload) => request('/interactions/favorites/toggle/', { method: 'POST', body: JSON.stringify(payload) }),
+  getFavorites: () => request('/interactions/favorites/my/'),
   getHistory: () => request('/interactions/course/history/'),
+  getAllActivities: () => request('/interactions/activities/'),
   getMyActivities: () => request('/interactions/activities/my/'),
-  getMyReports: () => request('/moderation/my_reports/'),
+  getActivitiesByUser: (id) => request(`/interactions/activities/${id}/`),
+
+  getNotifications: () => request('/notifications/'),
+  getNotification: (id) => request(`/notifications/${id}/`),
+  markAllNotifications: () => request('/notifications/mark_all/', { method: 'POST' }),
+  markOneNotification: (notification_id) => request('/notifications/mark_one/', { method: 'POST', body: JSON.stringify({ notification_id }) }),
+
+  getMyReports: (params) => request(`/moderation/my_reports/${buildQuery(params)}`),
   createReport: (payload) => request('/moderation/report/create/', { method: 'POST', body: JSON.stringify(payload) }),
 };

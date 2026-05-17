@@ -641,15 +641,21 @@ function WorkspaceView({ active, user, onEditProfile, onLogout, onReview }) {
 }
 
 
-function AccountSection({ active, user, notifications, favorites, myReviews, onOpenNotification, onToggleFavorite, onVoteReview }) {
+function AccountSection({ active, user, notifications, favorites, myReviews, myReports, onOpenNotification, onToggleFavorite, onVoteReview, onOpenReviewDetail, onOpenProfileSettings, onCreateReport }) {
   if (active === 'Notifications') {
     return <section className="workspace-view reveal"><h2>Notifications</h2><div className="compact-list">{notifications.map((n)=><button key={n.id} className="course-row" onClick={()=>onOpenNotification(n)}><strong>{n.title}</strong><span>{n.notification_type_display}</span></button>)}</div></section>;
+  }
+  if (active === 'Reports') {
+    return <section className="workspace-view reveal"><h2>Reports management</h2><button className="ghost-btn" onClick={onCreateReport}><Flag size={16} /> Report create</button><div className="compact-list">{myReports.map((r)=><article key={r.id} className="content-panel"><h3>{r.reason_display || r.reason}</h3><p>Status: {r.status_display || r.status}</p></article>)}</div></section>;
   }
   if (active === 'Favorites') {
     return <section className="workspace-view reveal"><h2>Favorites</h2><div className="compact-list">{favorites.map((f)=><article key={f.id} className="content-panel"><h3>{f.title || f.course?.title || 'Course'}</h3><button className="ghost-btn" onClick={()=>onToggleFavorite(f.id || f.course?.id)}>Remove</button></article>)}</div></section>;
   }
-  if (active === 'My reviews' || active === 'Votes' || active === 'Reports') {
-    return <section className="workspace-view reveal"><h2>{active}</h2><div className="compact-list">{myReviews.map((r)=><article key={r.id} className="content-panel"><h3>{r.title}</h3><p>Rating: {r.rating}</p><div className="top-actions"><button className="ghost-btn" onClick={()=>onVoteReview(r.id,'like')}>Like</button><button className="ghost-btn" onClick={()=>onVoteReview(r.id,'dislike')}>Dislike</button></div></article>)}</div></section>;
+  if (active === 'My reviews' || active === 'Votes') {
+    return <section className="workspace-view reveal"><h2>{active}</h2><div className="compact-list">{myReviews.map((r)=><article key={r.id} className="content-panel"><h3>{r.title}</h3><p>Rating: {r.rating}</p><div className="top-actions"><button className="ghost-btn" onClick={()=>onVoteReview(r.id,'like')}>Like</button><button className="ghost-btn" onClick={()=>onVoteReview(r.id,'dislike')}>Dislike</button><button className="ghost-btn" onClick={()=>onOpenReviewDetail(r.id)}>Review detail</button></div></article>)}</div></section>;
+  }
+  if (active === 'Profile') {
+    return <section className="workspace-view reveal"><h2>Profile view</h2><article className="content-panel"><h3>{user?.username}</h3><p>{user?.email}</p><button className="ghost-btn" onClick={onOpenProfileSettings}>Profile settings</button></article></section>;
   }
   return <WorkspaceView active={active} user={user} />;
 }
@@ -819,16 +825,18 @@ function App() {
   const [notifications, setNotifications] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [myReviews, setMyReviews] = useState([]);
+  const [myReports, setMyReports] = useState([]);
   const { categories, courses, centers, mentors, tags, loading, error } = usePlatformData({ ...filters, search: query });
 
   useEffect(() => {
     if (!user) return;
-    Promise.allSettled([api.getProfile(), api.getNotifications(), api.getFavorites(), api.getMyReviews()]).then((items)=>{
-      const [profile, nt, fav, reviews] = items;
+    Promise.allSettled([api.getProfile(), api.getNotifications(), api.getFavorites(), api.getMyReviews(), api.getMyReports()]).then((items)=>{
+      const [profile, nt, fav, reviews, reports] = items;
       if (profile.status==='fulfilled') setUser(profile.value?.data || user);
       if (nt.status==='fulfilled') setNotifications(normalizeList(nt.value));
       if (fav.status==='fulfilled') setFavorites(normalizeList(fav.value));
       if (reviews.status==='fulfilled') setMyReviews(normalizeList(reviews.value));
+      if (reports.status==='fulfilled') setMyReports(normalizeList(reports.value));
     }).catch(()=>{});
     api.getProfile()
       .then((payload) => setUser(payload?.data || user))
@@ -901,9 +909,13 @@ function App() {
             notifications={notifications}
             favorites={favorites}
             myReviews={myReviews}
-            onOpenNotification={async (n) => { await api.markNotificationRead(n.id); setNotifications((prev)=>prev.filter((x)=>x.id!==n.id)); }}
+            myReports={myReports}
+            onOpenNotification={async (n) => { await api.getNotificationDetail(n.id).catch(()=>null); await api.markNotificationRead(n.id); setNotifications((prev)=>prev.filter((x)=>x.id!==n.id)); }}
             onToggleFavorite={async (courseId) => { await api.toggleFavorite(courseId); setFavorites((prev)=>prev.filter((x)=>(x.id||x.course?.id)!==courseId)); }}
             onVoteReview={async (id, type) => { await api.voteReview(id, type); }}
+            onOpenReviewDetail={async (id) => { await api.getReview(id); await api.getReviewComments(id); }}
+            onOpenProfileSettings={() => setEditProfileOpen(true)}
+            onCreateReport={async () => { const firstReview = myReviews[0]; if (!firstReview) return; await api.createReport({ review: firstReview.id, reason: 'spam' }); const list = await api.getMyReports(); setMyReports(normalizeList(list)); }}
           />
         )}
       </main>

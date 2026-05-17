@@ -198,4 +198,10 @@ export const api = {
   voteReview: (review_id, vote_type) => request('/reviews/vote/', { method: 'POST', body: JSON.stringify({ review_id, vote_type }) }),
   getReviewComments: (id) => request(`/reviews/comments/by_review/${id}/`),
   createComment: (payload) => request('/reviews/comments/comment/', { method: 'POST', body: JSON.stringify(payload) }),
+  getCommentReplies: (id) => request(`/reviews/comments/${id}/replies/`),
+  updateComment: (id, payload) => request(`/reviews/comments/${id}/`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deleteComment: (id) => request(`/reviews/comments/${id}/`, { method: 'DELETE' }),
+  getMyReports: () => request('/moderation/my_reports/'),
+  createReport: (payload) => request('/moderation/report/create/', { method: 'POST', body: JSON.stringify(payload) }),
+  getNotificationDetail: (id) => request(`/notifications/${id}/`),
 };

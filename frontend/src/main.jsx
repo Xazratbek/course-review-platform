@@ -653,7 +653,7 @@ function WorkspaceView({ active, user, onEditProfile, onLogout, onReview }) {
 }
 
 
-function AccountSection({ active, user, notifications, favorites, myReviews, myReports, onOpenNotification, onToggleFavorite, onVoteReview, onOpenReviewDetail, onOpenProfileSettings, onCreateReport }) {
+function AccountSection({ active, user, notifications, favorites, myReviews, myReports, onOpenNotification, onMarkNotificationRead, onMarkAllNotificationsRead, onToggleFavorite, onVoteReview, onOpenReviewDetail, onOpenProfileSettings, onCreateReport, onReviewUpdate, onReviewDelete, onReviewMediaDelete, onChangePassword, onDeleteProfile, onLoadHistory, onLoadActivities }) {
   if (active === 'Notifications') {
     return <section className="workspace-view reveal"><div className="workspace-header"><h2>Notifications</h2><button className="ghost-btn" onClick={onMarkAllNotificationsRead}>Barchasini o‘qildi qilish</button></div><div className="compact-list">{notifications.map((n)=><article key={n.id} className="content-panel"><button className="course-row" onClick={()=>onOpenNotification(n)}><strong>{n.title}</strong><span>{n.notification_type_display}</span></button><button className="ghost-btn" onClick={()=>onMarkNotificationRead(n.id)}><CheckCircle2 size={16} /> O‘qildi</button></article>)}</div></section>;
   }
@@ -667,10 +667,13 @@ function AccountSection({ active, user, notifications, favorites, myReviews, myR
     return <section className="workspace-view reveal"><h2>Favorites</h2><div className="compact-list">{favorites.map((f)=><article key={f.id} className="content-panel"><h3>{f.title || f.course?.title || 'Course'}</h3><button className="ghost-btn" onClick={()=>onToggleFavorite(f.id || f.course?.id)}>Remove</button></article>)}</div></section>;
   }
   if (active === 'My reviews' || active === 'Votes') {
-    return <section className="workspace-view reveal"><h2>{active}</h2><div className="compact-list">{myReviews.map((r)=><article key={r.id} className="content-panel"><h3>{r.title}</h3><p>Rating: {r.rating}</p><div className="top-actions"><button className="ghost-btn" onClick={()=>onVoteReview(r.id,'like')}>Like</button><button className="ghost-btn" onClick={()=>onVoteReview(r.id,'dislike')}>Dislike</button><button className="ghost-btn" onClick={()=>onOpenReviewDetail(r.id)}>Review detail</button></div></article>)}</div></section>;
+    return <section className="workspace-view reveal"><h2>{active}</h2><div className="compact-list">{myReviews.map((r)=><article key={r.id} className="content-panel"><h3>{r.title}</h3><p>Rating: {r.rating}</p><div className="top-actions"><button className="ghost-btn" onClick={()=>onVoteReview(r.id,'like')}>Like</button><button className="ghost-btn" onClick={()=>onVoteReview(r.id,'dislike')}>Dislike</button><button className="ghost-btn" onClick={()=>onOpenReviewDetail(r.id)}>Review detail</button><button className="ghost-btn" onClick={()=>onReviewUpdate(r)}>Update</button><button className="ghost-btn" onClick={()=>onReviewMediaDelete(r.id)}>Delete media</button><button className="ghost-btn" onClick={()=>onReviewDelete(r.id)}>Delete</button></div></article>)}</div></section>;
   }
   if (active === 'Profile') {
     return <section className="workspace-view reveal"><h2>Profile view</h2><article className="content-panel"><h3>{user?.username}</h3><p>{user?.email}</p><button className="ghost-btn" onClick={onOpenProfileSettings}>Profile settings</button></article></section>;
+  }
+  if (active === 'Security') {
+    return <section className="workspace-view reveal"><h2>Security</h2><div className="top-actions"><button className="ghost-btn" onClick={onChangePassword}>Change password</button><button className="ghost-btn" onClick={onDeleteProfile}>Delete profile</button><button className="ghost-btn" onClick={onLoadHistory}>Course history</button><button className="ghost-btn" onClick={onLoadActivities}>My activity</button></div></section>;
   }
   return <WorkspaceView active={active} user={user} />;
 }
@@ -866,6 +869,11 @@ function App() {
   const [favorites, setFavorites] = useState([]);
   const [myReviews, setMyReviews] = useState([]);
   const [myReports, setMyReports] = useState([]);
+  const [reviewDetail, setReviewDetail] = useState(null);
+  const [reviewComments, setReviewComments] = useState([]);
+  const [commentDraft, setCommentDraft] = useState('');
+  const [courseDetail, setCourseDetail] = useState(null);
+  const [courseReviews, setCourseReviews] = useState([]);
   const { categories, courses, centers, mentors, tags, loading, error } = usePlatformData({ ...filters, search: query });
 
   useEffect(() => {
@@ -1008,11 +1016,20 @@ function App() {
             myReviews={myReviews}
             myReports={myReports}
             onOpenNotification={async (n) => { await api.getNotificationDetail(n.id).catch(()=>null); await api.markNotificationRead(n.id); setNotifications((prev)=>prev.filter((x)=>x.id!==n.id)); }}
+            onMarkNotificationRead={async (id) => { await api.markNotificationRead(id); setNotifications((prev)=>prev.filter((x)=>x.id!==id)); }}
+            onMarkAllNotificationsRead={async () => { await api.markAllNotificationsRead(); setNotifications([]); }}
             onToggleFavorite={async (courseId) => { await api.toggleFavorite(courseId); setFavorites((prev)=>prev.filter((x)=>(x.id||x.course?.id)!==courseId)); }}
             onVoteReview={async (id, type) => { await api.voteReview(id, type); }}
-            onOpenReviewDetail={async (id) => { await api.getReview(id); await api.getReviewComments(id); }}
+            onOpenReviewDetail={async (id) => { const detail = await api.getReview(id); const comments = await api.getReviewComments(id); setReviewDetail(detail); setReviewComments(normalizeList(comments)); setActive('Review detail'); }}
             onOpenProfileSettings={() => setEditProfileOpen(true)}
-            onCreateReport={async () => { const firstReview = myReviews[0]; if (!firstReview) return; await api.createReport({ review: firstReview.id, reason: 'spam' }); const list = await api.getMyReports(); setMyReports(normalizeList(list)); }}
+            onCreateReport={async () => { const firstReview = myReviews[0]; if (!firstReview) return; const reason = window.prompt('Reason kiriting (spam/hate/fake/other)', 'spam') || 'spam'; await api.createReport({ review: firstReview.id, reason }); const list = await api.getMyReports(); setMyReports(normalizeList(list)); }}
+            onReviewUpdate={async (r) => { await api.updateReview(r.id, { title: r.title, body: r.body, advantages: r.advantages || 'Afzallik', disadvantages: r.disadvantages || 'Kamchilik' }); }}
+            onReviewDelete={async (id) => { await api.deleteReview(id); const list = await api.getMyReviews(); setMyReviews(normalizeList(list)); }}
+            onReviewMediaDelete={async (id) => { await api.deleteReviewMedia(id); }}
+            onChangePassword={async () => { const old_password = window.prompt('Old password'); const new_password = window.prompt('New password'); const confirm_password = window.prompt('Confirm password'); if (!old_password || !new_password || !confirm_password) return; await api.changePassword({ old_password, new_password, confirm_password }); }}
+            onDeleteProfile={async () => { if (!window.confirm('Profilni o‘chirasizmi?')) return; await api.deleteProfile(); logout(); setUser(null); }}
+            onLoadHistory={async () => { const payload = await api.getCourseHistory(); alert(`History items: ${normalizeList(payload).length}`); }}
+            onLoadActivities={async () => { const payload = await api.getMyActivities(); alert(`Activities: ${normalizeList(payload).length}`); }}
           />
         )}
         {active === 'Review detail' && reviewDetail && (

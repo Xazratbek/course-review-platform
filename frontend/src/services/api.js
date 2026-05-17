@@ -205,5 +205,13 @@ export const api = {
   deleteComment: (id) => request(`/reviews/comments/${id}/`, { method: 'DELETE' }),
   getMyReports: () => request('/moderation/my_reports/'),
   createReport: (payload) => request('/moderation/report/create/', { method: 'POST', body: JSON.stringify(payload) }),
+
+  updateReview: (id, payload) => request(`/reviews/update/${id}/`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteReview: (id) => request(`/reviews/delete/${id}/`, { method: 'DELETE' }),
+  deleteReviewMedia: (id) => request(`/reviews/media/delete/${id}/`, { method: 'DELETE' }),
+  changePassword: (payload) => request('/accounts/password/change/', { method: 'POST', body: JSON.stringify(payload) }),
+  deleteProfile: () => request('/accounts/delete/', { method: 'DELETE' }),
+  getCourseHistory: () => request('/interactions/course/history/'),
+  getMyActivities: () => request('/interactions/activities/my/'),
   getNotificationDetail: (id) => request(`/notifications/${id}/`),
 };

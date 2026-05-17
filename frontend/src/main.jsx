@@ -22,6 +22,7 @@ import {
   Settings,
   ShieldCheck,
   SlidersHorizontal,
+  RotateCcw,
   Star,
   Tag,
   ThumbsUp,
@@ -217,7 +218,7 @@ function Sidebar({ collapsed, setCollapsed, active, setActive, user, onProfileCl
   );
 }
 
-function Topbar({ draftSearch, setDraftSearch, onSearch, user, onLoginClick, onLogout }) {
+function Topbar({ draftSearch, setDraftSearch, onSearch, user, onLoginClick, onLogout, unreadCount, onOpenNotifications, onMarkAllRead }) {
   return (
     <header className="topbar">
       <div>
@@ -236,9 +237,11 @@ function Topbar({ draftSearch, setDraftSearch, onSearch, user, onLoginClick, onL
             <Search size={16} />
           </button>
         </form>
-        <button className="icon-btn" aria-label="Bildirishnomalar">
+        <button className="icon-btn" aria-label="Bildirishnomalar" onClick={onOpenNotifications}>
           <Bell size={19} />
+          {unreadCount > 0 && <span className="notify-dot">{unreadCount}</span>}
         </button>
+        {user && <button className="ghost-btn" onClick={onMarkAllRead}>Barchasi o'qildi</button>}
         <button className="pill-btn" onClick={onLoginClick}>
           {user ? <UserRound size={18} /> : <LogIn size={18} />}
           <span>{user ? user.username : 'Kirish'}</span>
@@ -603,7 +606,7 @@ function ExploreSection({ active, courses, categories, centers, mentors, tags, l
   );
 }
 
-function WorkspaceView({ active, user, selectedCourse, onReview, onEditProfile, onLogout }) {
+function WorkspaceView({ active, user, onEditProfile, onLogout, onReview }) {
   return (
     <section className="workspace-view reveal">
       <div className="workspace-header">
@@ -623,7 +626,7 @@ function WorkspaceView({ active, user, selectedCourse, onReview, onEditProfile, 
         <article className="action-card">
           <Heart size={24} />
           <h3>Favorites</h3>
-          <p>{selectedCourse?.title || 'Tanlangan kurs'} sevimlilarga qo‘shilishi mumkin.</p>
+          <p>Favorite kurslar shu yerda boshqariladi.</p>
           <button>Favorite</button>
         </article>
         <article className="action-card">
@@ -635,6 +638,20 @@ function WorkspaceView({ active, user, selectedCourse, onReview, onEditProfile, 
       </div>
     </section>
   );
+}
+
+
+function AccountSection({ active, user, notifications, favorites, myReviews, onOpenNotification, onToggleFavorite, onVoteReview }) {
+  if (active === 'Notifications') {
+    return <section className="workspace-view reveal"><h2>Notifications</h2><div className="compact-list">{notifications.map((n)=><button key={n.id} className="course-row" onClick={()=>onOpenNotification(n)}><strong>{n.title}</strong><span>{n.notification_type_display}</span></button>)}</div></section>;
+  }
+  if (active === 'Favorites') {
+    return <section className="workspace-view reveal"><h2>Favorites</h2><div className="compact-list">{favorites.map((f)=><article key={f.id} className="content-panel"><h3>{f.title || f.course?.title || 'Course'}</h3><button className="ghost-btn" onClick={()=>onToggleFavorite(f.id || f.course?.id)}>Remove</button></article>)}</div></section>;
+  }
+  if (active === 'My reviews' || active === 'Votes' || active === 'Reports') {
+    return <section className="workspace-view reveal"><h2>{active}</h2><div className="compact-list">{myReviews.map((r)=><article key={r.id} className="content-panel"><h3>{r.title}</h3><p>Rating: {r.rating}</p><div className="top-actions"><button className="ghost-btn" onClick={()=>onVoteReview(r.id,'like')}>Like</button><button className="ghost-btn" onClick={()=>onVoteReview(r.id,'dislike')}>Dislike</button></div></article>)}</div></section>;
+  }
+  return <WorkspaceView active={active} user={user} />;
 }
 
 function ReviewModal({ open, onClose, course }) {
@@ -799,10 +816,20 @@ function App() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [user, setUser] = useState(getStoredUser());
+  const [notifications, setNotifications] = useState([]);
+  const [favorites, setFavorites] = useState([]);
+  const [myReviews, setMyReviews] = useState([]);
   const { categories, courses, centers, mentors, tags, loading, error } = usePlatformData({ ...filters, search: query });
 
   useEffect(() => {
     if (!user) return;
+    Promise.allSettled([api.getProfile(), api.getNotifications(), api.getFavorites(), api.getMyReviews()]).then((items)=>{
+      const [profile, nt, fav, reviews] = items;
+      if (profile.status==='fulfilled') setUser(profile.value?.data || user);
+      if (nt.status==='fulfilled') setNotifications(normalizeList(nt.value));
+      if (fav.status==='fulfilled') setFavorites(normalizeList(fav.value));
+      if (reviews.status==='fulfilled') setMyReviews(normalizeList(reviews.value));
+    }).catch(()=>{});
     api.getProfile()
       .then((payload) => setUser(payload?.data || user))
       .catch(() => setUser(getStoredUser()));
@@ -844,6 +871,9 @@ function App() {
           user={user}
           onLoginClick={() => (user ? setActive('Profile') : setLoginOpen(true))}
           onLogout={handleLogout}
+          unreadCount={notifications.length}
+          onOpenNotifications={() => setActive('Notifications')}
+          onMarkAllRead={async () => { if(!user) return; await api.markAllNotificationsRead(); setNotifications([]); }}
         />
         {error && <div className="api-alert">{error}</div>}
 
@@ -865,13 +895,15 @@ function App() {
             onReview={() => setReviewOpen(true)}
           />
         ) : (
-          <WorkspaceView
+          <AccountSection
             active={active}
             user={user}
-            selectedCourse={selectedCourse}
-            onReview={() => setReviewOpen(true)}
-            onEditProfile={() => setEditProfileOpen(true)}
-            onLogout={handleLogout}
+            notifications={notifications}
+            favorites={favorites}
+            myReviews={myReviews}
+            onOpenNotification={async (n) => { await api.markNotificationRead(n.id); setNotifications((prev)=>prev.filter((x)=>x.id!==n.id)); }}
+            onToggleFavorite={async (courseId) => { await api.toggleFavorite(courseId); setFavorites((prev)=>prev.filter((x)=>(x.id||x.course?.id)!==courseId)); }}
+            onVoteReview={async (id, type) => { await api.voteReview(id, type); }}
           />
         )}
       </main>

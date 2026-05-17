@@ -26,6 +26,7 @@ class Notification(BaseModel):
         db_table = "notifications"
         verbose_name = "Xabar"
         verbose_name_plural = "Xabarlar"
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['receiver']),
             models.Index(fields=['is_read']),

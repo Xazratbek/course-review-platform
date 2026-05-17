@@ -45,23 +45,38 @@ NotificationMarkAllReadView - APIView. Bulk update kerak, shuning uchun genericd
 NotificationSerializer - list/detail uchun title, body, type, is_read, created_at.
 NotificationUpdateSerializer - faqat is_read update uchun.
 
-Yetishmayotgan viewlar (hozirgi holat bo‘yicha)
-To‘liq alohida Course Detail route page (hozir dashboard ichida detail panel ko‘rinishida).
+#####################
 
-To‘liq Review Detail + threaded comments CRUD view (modal/form bor, lekin full review detail sahifasi alohida emas).
-
-Notification Detail page (item bosilganda mark-read bo‘ladi, ammo dedicated detail page yo‘q).
-
-Reports management view (hozir My Reviews bilan bir flowda ko‘rsatilgan, alohida report create/list yo‘q).
-
-Profile view/edit split screens (edit modal bor, lekin alohida profile settings sahifasi yo‘q).
-
-Tavsiya etiladigan 3 ta yangi feature (backendga tegmasdan faqat tavsiya)
+“3 ta yangi feature”ni qanday implement qilish (kod bermasdan yo‘l-yo‘riq)
 Saved Search & Smart Alerts
-User filterlarini (category/level/language) saqlab qo‘yadi, yangi mos kurs/review chiqsa notification keladi.
+
+Frontendda “Save this filter” tugma qo‘ying (category/level/language/search).
+
+Local storage’da saved presets saqlang (saved_searches array).
+
+App ochilganda presetlarni o‘qing va periodik poll qiling (masalan 60s) getCourses()/getMyReviews() orqali.
+
+Oxirgi ko‘rilgan natija hash/id snapshot bilan solishtirib “new match” bo‘lsa mavjud notification UI’ga local-inbox sifatida push qiling.
+
+Keyin backend qo‘shilganda shu logikani server-side alertga migratsiya qilasiz.
 
 Comparison Mode (Course vs Course)
-2-3 kursni yonma-yon solishtirish: narx, rating, mentor, certificate, davomiylik.
+
+Course listda checkbox/select state qo‘ying (selectedForCompare, max 3).
+
+Compare panelda common field map chiqaring: price, rating, mentor, certificate, duration.
+
+Bo‘sh fieldlar uchun — fallback va highlight best-value qo‘shing (masalan eng yuqori rating).
+
+UX: sticky compare bar + “Open comparison” dedicated view.
 
 Reputation & Trust Layer
-Reviewlarga “helpful” score, verified-student weight, spam risk score; sorting “eng ishonchli sharhlar” bo‘yicha.
+
+Frontend scoring formula yarating (backendga tegmasdan):
+trustScore = helpfulVotes * w1 + verifiedUser * w2 - reportRisk * w3.
+
+verifiedUser ni profile flagdan, helpfulni vote summarydan, reportRiskni oddiy heuristikadan oling (masalan juda qisqa/repetitive text).
+
+Review listda sorting option qo‘shing: “Most trusted”.
+
+Har review kartasida trust badge + breakdown tooltip (nechaga shuncha ball bo‘ldi) chiqaring.

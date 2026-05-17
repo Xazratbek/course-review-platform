@@ -29,6 +29,7 @@ class Category(BaseModel):
         db_table = "categories"
         verbose_name = "Kategoriya"
         verbose_name_plural = "Kategoriyalar"
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['slug']),
             models.Index(fields=['name']),
@@ -52,6 +53,7 @@ class CourseCenter(BaseModel):
         db_table = "course_centers"
         verbose_name = "O'quv markaz"
         verbose_name_plural = "O'quv markazlari"
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['slug']),
             models.Index(fields=['title']),
@@ -78,6 +80,7 @@ class Mentor(BaseModel):
         db_table = "mentors"
         verbose_name = "Mentor"
         verbose_name_plural = "Mentorlar"
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['full_name']),
             models.Index(fields=['slug']),
@@ -109,6 +112,7 @@ class Course(BaseModel):
         db_table = "courses"
         verbose_name = "Kurs"
         verbose_name_plural = "Kurslar"
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['slug']),
             models.Index(fields=['title']),
@@ -131,6 +135,7 @@ class CourseTag(BaseModel):
         db_table = "course_tags"
         verbose_name = "Kurs tegi"
         verbose_name_plural = "Kurs teglari"
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['name']),
             models.Index(fields=['slug']),
@@ -148,4 +153,5 @@ class CourseTagItem(BaseModel):
         db_table = "course_tag_items"
         verbose_name = "Kurs tegi elementi"
         verbose_name_plural = "Kurs tegi elementlari"
+        ordering = ['-created_at']
         unique_together = ('course', 'tag')

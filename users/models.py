@@ -27,7 +27,7 @@ class CustomUser(AbstractUser, BaseModel):
         db_table = 'accounts'
         verbose_name = "Foydalanuvchi"
         verbose_name_plural = "Foydalanuvchilar"
-        ordering = ['-id']
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['email']),
             models.Index(fields=['username']),

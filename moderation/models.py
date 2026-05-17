@@ -35,6 +35,7 @@ class Report(BaseModel):
         db_table = "reports"
         verbose_name = "Xabar"
         verbose_name_plural = "Xabarlar"
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['status']),
             models.Index(fields=['created_at']),
@@ -54,6 +55,7 @@ class ModerationAction(BaseModel):
         db_table = "moderation_actions"
         verbose_name = "Moderatsiya amali"
         verbose_name_plural = "Moderatsiya amalları"
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['moderator']),
             models.Index(fields=['action']),

@@ -86,6 +86,7 @@ class Review(BaseModel):
         verbose_name = "Sharh"
         verbose_name_plural = "Sharhlar"
         unique_together = ('user', 'course')
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['user']),
             models.Index(fields=['course']),
@@ -108,6 +109,7 @@ class ReviewVote(BaseModel):
         verbose_name = "Sharh ovozi"
         verbose_name_plural = "Sharh ovozlari"
         unique_together = ('user', 'review')
+        ordering = ['-created_at']
 
 
 class ReviewMedia(BaseModel):
@@ -121,6 +123,7 @@ class ReviewMedia(BaseModel):
         db_table = "review_media"
         verbose_name = "Sharh media"
         verbose_name_plural = "Sharh medialari"
+        ordering = ['-created_at']
 
 
 class Comment(BaseModel):
@@ -157,6 +160,7 @@ class Comment(BaseModel):
         db_table = "comments"
         verbose_name = "Izoh"
         verbose_name_plural = "Izohlar"
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['review']),
             models.Index(fields=['user']),

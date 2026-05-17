@@ -24,6 +24,7 @@ class Favorite(BaseModel):
         verbose_name = "Sevimli"
         verbose_name_plural = "Sevimlillar"
         unique_together = ('user', 'course')
+        ordering = ['-created_at']
 
 
 class CourseViewHistory(BaseModel):
@@ -37,6 +38,7 @@ class CourseViewHistory(BaseModel):
         db_table = "course_view_history"
         verbose_name = "Kurs ko'rish tarixi"
         verbose_name_plural = "Kurs ko'rish tarixlari"
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['user']),
             models.Index(fields=['course']),
@@ -60,6 +62,7 @@ class UserActivity(BaseModel):
         db_table = "user_activities"
         verbose_name = "Foydalanuvchi faoliyati"
         verbose_name_plural = "Foydalanuvchi faoliyatlari"
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['user']),
             models.Index(fields=['activity_type']),

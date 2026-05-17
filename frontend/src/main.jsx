@@ -1,71 +1,90 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { api, getStoredUser, login, logout } from './services/api.js';
+import { api, getStoredUser, login, logout, normalizeList } from './services/api.js';
 import './styles/app.css';
 
-const normalizeList = (payload) => (Array.isArray(payload) ? payload : payload?.results || payload?.data || []);
+const Box = ({ title, children }) => <section className="workspace-view" style={{ marginBottom: 16 }}><h3>{title}</h3>{children}</section>;
 
 function App() {
   const [user, setUser] = useState(getStoredUser());
-  const [tab, setTab] = useState('reviews');
-  const [reviews, setReviews] = useState([]);
-  const [history, setHistory] = useState([]);
-  const [activities, setActivities] = useState([]);
-  const [reports, setReports] = useState([]);
-  const [status, setStatus] = useState('');
-  const [error, setError] = useState('');
-  const [credentials, setCredentials] = useState({ username: '', password: '' });
-  const [editForm, setEditForm] = useState({});
-  const [reportForm, setReportForm] = useState({ review: '', reason: '' });
-  const [passwordForm, setPasswordForm] = useState({ old_password: '', new_password: '', confirm_password: '' });
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+  const [data, setData] = useState({});
+  const [auth, setAuth] = useState({ username: '', password: '' });
+  const [inputs, setInputs] = useState({ slug: '', uuid: '', review: '', course: '', notification_id: '', vote_type: 'like', reason: 'spam' });
 
-  const loadAll = async () => {
-    if (!user) return;
-    const [rv, hs, ac, rp] = await Promise.allSettled([api.getMyReviews(), api.getHistory(), api.getMyActivities(), api.getMyReports()]);
-    if (rv.status === 'fulfilled') setReviews(normalizeList(rv.value));
-    if (hs.status === 'fulfilled') setHistory(normalizeList(hs.value));
-    if (ac.status === 'fulfilled') setActivities(normalizeList(ac.value));
-    if (rp.status === 'fulfilled') setReports(normalizeList(rp.value));
+  const run = async (label, fn) => {
+    setErr(''); setMsg(`${label}...`);
+    try { const x = await fn(); setData((d) => ({ ...d, [label]: x })); setMsg(`${label} OK`); }
+    catch (e) { setErr(e.message); setMsg(''); }
   };
 
-  useEffect(() => { loadAll(); }, [user]);
+  if (!user) return <main className='workspace-view'><h2>Login</h2><form onSubmit={(e)=>{e.preventDefault();run('login', async()=>setUser(await login(auth)));}}><input placeholder='username' value={auth.username} onChange={(e)=>setAuth({...auth,username:e.target.value})}/><input type='password' placeholder='password' value={auth.password} onChange={(e)=>setAuth({...auth,password:e.target.value})}/><button>Kirish</button></form><p>{err}</p></main>;
 
-  const run = async (fn) => {
-    setError('');
-    setStatus('Jarayon...');
-    try { await fn(); setStatus('Bajarildi'); } catch (e) { setError(e.message); setStatus(''); }
-  };
+  return <main className='workspace-view'>
+    <h1>Course Review Platform — IMDb Style API Console</h1>
+    <p>Backenddagi barcha URL/API viewlar UI orqali ishlatiladi.</p>
+    <button onClick={()=>{logout();setUser(null);}}>Logout</button>
+    {msg && <p>{msg}</p>}{err && <p style={{color:'crimson'}}>{err}</p>}
 
-  if (!user) return <main className="workspace-view"><h2>Login</h2><form onSubmit={(e)=>{e.preventDefault();run(async()=>setUser(await login(credentials)));}}><input placeholder='username' value={credentials.username} onChange={(e)=>setCredentials({...credentials, username:e.target.value})}/><input type='password' placeholder='password' value={credentials.password} onChange={(e)=>setCredentials({...credentials, password:e.target.value})}/><button>Kirish</button>{error && <p>{error}</p>}</form></main>;
+    <Box title='Universal Inputs'>
+      <input placeholder='course slug' value={inputs.slug} onChange={(e)=>setInputs({...inputs,slug:e.target.value})}/>
+      <input placeholder='uuid/id' value={inputs.uuid} onChange={(e)=>setInputs({...inputs,uuid:e.target.value})}/>
+      <input placeholder='review id' value={inputs.review} onChange={(e)=>setInputs({...inputs,review:e.target.value})}/>
+      <input placeholder='course id' value={inputs.course} onChange={(e)=>setInputs({...inputs,course:e.target.value})}/>
+      <input placeholder='notification id' value={inputs.notification_id} onChange={(e)=>setInputs({...inputs,notification_id:e.target.value})}/>
+    </Box>
 
-  return <main className="workspace-view"><h1>Production Account UI</h1>
-    <div><button onClick={()=>setTab('reviews')}>Reviews</button><button onClick={()=>setTab('report')}>Report</button><button onClick={()=>setTab('activity')}>History/Activity</button><button onClick={()=>setTab('security')}>Security</button><button onClick={()=>{logout();setUser(null);}}>Logout</button></div>
-    {status && <p>{status}</p>}{error && <p>{error}</p>}
+    <Box title='Accounts API'>
+      <button onClick={()=>run('profile',()=>api.getProfile())}>GET my/profile</button>
+      <button onClick={()=>run('update_profile',()=>{const f=new FormData();f.append('first_name','IMDb');return api.updateProfile(f);})}>PATCH update</button>
+      <button onClick={()=>run('change_password',()=>api.changePassword({old_password:'old',new_password:'new12345A!',confirm_password:'new12345A!'}))}>POST password/change</button>
+      <button onClick={()=>run('delete_profile',()=>api.deleteProfile())}>DELETE profile</button>
+    </Box>
 
-    {tab==='reviews' && <section>
-      <h2>Review update/delete/media delete</h2>
-      {reviews.map((r)=><article key={r.id}><h4>{r.title}</h4><input placeholder='Title' value={editForm[r.id]?.title ?? r.title ?? ''} onChange={(e)=>setEditForm({...editForm,[r.id]:{...(editForm[r.id]||r),title:e.target.value}})} /><textarea placeholder='Body' value={editForm[r.id]?.body ?? r.body ?? ''} onChange={(e)=>setEditForm({...editForm,[r.id]:{...(editForm[r.id]||r),body:e.target.value}})} />
-      <button onClick={()=>run(async()=>{await api.updateReview(r.id,{title:editForm[r.id]?.title||r.title,body:editForm[r.id]?.body||r.body,advantages:editForm[r.id]?.advantages||r.advantages||'-',disadvantages:editForm[r.id]?.disadvantages||r.disadvantages||'-'});await loadAll();})}>Update</button>
-      <button onClick={()=>run(async()=>{await api.deleteReviewMedia(r.id);await loadAll();})}>Delete Media</button>
-      <button onClick={()=>run(async()=>{await api.deleteReview(r.id);await loadAll();})}>Delete Review</button></article>)}
-    </section>}
+    <Box title='Course API'>
+      <button onClick={()=>run('categories',()=>api.getCategories())}>GET categories</button><button onClick={()=>run('centers',()=>api.getCenters())}>GET centers</button><button onClick={()=>run('center',()=>api.getCenter(inputs.slug))}>GET center/:slug</button>
+      <button onClick={()=>run('mentors',()=>api.getMentors())}>GET mentors</button><button onClick={()=>run('mentor',()=>api.getMentor(inputs.slug))}>GET mentor/:slug</button>
+      <button onClick={()=>run('tags',()=>api.getTags())}>GET tags</button><button onClick={()=>run('tag_items',()=>api.getTagItemsByCourseSlug(inputs.slug))}>GET tags/:slug</button>
+      <button onClick={()=>run('courses',()=>api.getCourses())}>GET courses</button><button onClick={()=>run('course',()=>api.getCourse(inputs.slug))}>GET course/:slug</button>
+    </Box>
 
-    {tab==='report' && <section><h2>Dynamic report form</h2>
-      <select value={reportForm.review} onChange={(e)=>setReportForm({...reportForm,review:e.target.value})}><option value=''>Review tanlang</option>{reviews.map((r)=><option key={r.id} value={r.id}>{r.title}</option>)}</select>
-      <select value={reportForm.reason} onChange={(e)=>setReportForm({...reportForm,reason:e.target.value})}><option value=''>Reason</option><option value='spam'>Spam</option><option value='hate'>Hate speech</option><option value='fake'>Fake info</option><option value='other'>Other</option></select>
-      <button onClick={()=>run(async()=>{await api.createReport(reportForm);await loadAll();})}>Report yuborish</button>
-      {reports.map((r)=><p key={r.id}>{r.reason} - {r.status}</p>)}
-    </section>}
+    <Box title='Reviews & Comments API'>
+      <button onClick={()=>run('reviews_by_course',()=>api.getReviewsByCourse(inputs.slug))}>GET by_course/:slug</button>
+      <button onClick={()=>run('create_review',()=>api.createReview({course:inputs.course,rating:5,title:'Great',body:'IMDb style',advantages:'UI',disadvantages:'none'}))}>POST create review</button>
+      <button onClick={()=>run('my_reviews',()=>api.getMyReviews())}>GET my reviews</button>
+      <button onClick={()=>run('review',()=>api.getReview(inputs.uuid))}>GET review/:uuid</button>
+      <button onClick={()=>run('update_review',()=>api.updateReview(inputs.uuid,{rating:4,title:'Updated',body:'Updated',advantages:'a',disadvantages:'b'}))}>PUT update review</button>
+      <button onClick={()=>run('vote',()=>api.voteReview({review:inputs.review,vote_type:inputs.vote_type}))}>POST vote</button>
+      <button onClick={()=>run('delete_media',()=>api.deleteReviewMedia(inputs.uuid))}>DELETE media/:uuid</button>
+      <button onClick={()=>run('delete_review',()=>api.deleteReview(inputs.uuid))}>DELETE review/:uuid</button>
+      <button onClick={()=>run('comments',()=>api.getCommentsByReview(inputs.review))}>GET comments/by_review/:uuid</button>
+      <button onClick={()=>run('create_comment',()=>api.createComment({review:inputs.review,body:'Nice!'}))}>POST comment</button>
+      <button onClick={()=>run('delete_comment',()=>api.deleteComment(inputs.uuid))}>DELETE comment/:uuid</button>
+    </Box>
 
-    {tab==='activity' && <section><h2>Course history</h2>{history.map((h)=><p key={h.id}>{h.course?.title || h.id}</p>)}<h2>My activity</h2>{activities.map((a)=><p key={a.id}>{a.activity_type}</p>)}</section>}
+    <Box title='Interactions API'>
+      <button onClick={()=>run('toggle_fav',()=>api.toggleFavorite({course:inputs.course}))}>POST favorites/toggle</button>
+      <button onClick={()=>run('favorites',()=>api.getFavorites())}>GET favorites/my</button>
+      <button onClick={()=>run('history',()=>api.getHistory())}>GET course/history</button>
+      <button onClick={()=>run('activities_my',()=>api.getMyActivities())}>GET activities/my</button>
+      <button onClick={()=>run('activities_all',()=>api.getAllActivities())}>GET activities/</button>
+      <button onClick={()=>run('activities_user',()=>api.getActivitiesByUser(inputs.uuid))}>GET activities/:uuid</button>
+    </Box>
 
-    {tab==='security' && <section><h2>Password change & profile delete</h2>
-      <input type='password' placeholder='old_password' value={passwordForm.old_password} onChange={(e)=>setPasswordForm({...passwordForm,old_password:e.target.value})}/>
-      <input type='password' placeholder='new_password' value={passwordForm.new_password} onChange={(e)=>setPasswordForm({...passwordForm,new_password:e.target.value})}/>
-      <input type='password' placeholder='confirm_password' value={passwordForm.confirm_password} onChange={(e)=>setPasswordForm({...passwordForm,confirm_password:e.target.value})}/>
-      <button onClick={()=>run(async()=>api.changePassword(passwordForm))}>Change password</button>
-      <button onClick={()=>run(async()=>{await api.deleteProfile();logout();setUser(null);})}>Delete profile</button>
-    </section>}
+    <Box title='Notifications API'>
+      <button onClick={()=>run('notifications',()=>api.getNotifications())}>GET notifications</button>
+      <button onClick={()=>run('notification',()=>api.getNotification(inputs.uuid))}>GET notifications/:uuid</button>
+      <button onClick={()=>run('mark_all',()=>api.markAllNotifications())}>POST mark_all</button>
+      <button onClick={()=>run('mark_one',()=>api.markOneNotification(inputs.notification_id))}>POST mark_one</button>
+    </Box>
+
+    <Box title='Moderation API'>
+      <button onClick={()=>run('my_reports',()=>api.getMyReports())}>GET my_reports</button>
+      <button onClick={()=>run('create_report',()=>api.createReport({review:inputs.review,reason:inputs.reason}))}>POST report/create</button>
+    </Box>
+
+    <Box title='Live JSON result'>{Object.entries(data).map(([k,v])=><details key={k}><summary>{k}</summary><pre>{JSON.stringify(Array.isArray(v)?normalizeList(v):v,null,2)}</pre></details>)}</Box>
   </main>;
 }
 

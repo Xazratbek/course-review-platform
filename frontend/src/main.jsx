@@ -653,9 +653,12 @@ function WorkspaceView({ active, user, onEditProfile, onLogout, onReview }) {
 }
 
 
-function AccountSection({ active, user, notifications, favorites, myReviews, myReports, onOpenNotification, onToggleFavorite, onVoteReview, onOpenReviewDetail, onOpenProfileSettings, onCreateReport, onMarkNotificationRead, onMarkAllNotificationsRead }) {
+function AccountSection({ active, user, notifications, favorites, myReviews, myReports, onOpenNotification, onToggleFavorite, onVoteReview, onOpenReviewDetail, onOpenProfileSettings, onCreateReport }) {
   if (active === 'Notifications') {
     return <section className="workspace-view reveal"><div className="workspace-header"><h2>Notifications</h2><button className="ghost-btn" onClick={onMarkAllNotificationsRead}>Barchasini o‘qildi qilish</button></div><div className="compact-list">{notifications.map((n)=><article key={n.id} className="content-panel"><button className="course-row" onClick={()=>onOpenNotification(n)}><strong>{n.title}</strong><span>{n.notification_type_display}</span></button><button className="ghost-btn" onClick={()=>onMarkNotificationRead(n.id)}><CheckCircle2 size={16} /> O‘qildi</button></article>)}</div></section>;
+  }
+  if (active === 'Reports') {
+    return <section className="workspace-view reveal"><h2>Reports management</h2><button className="ghost-btn" onClick={onCreateReport}><Flag size={16} /> Report create</button><div className="compact-list">{myReports.map((r)=><article key={r.id} className="content-panel"><h3>{r.reason_display || r.reason}</h3><p>Status: {r.status_display || r.status}</p></article>)}</div></section>;
   }
   if (active === 'Reports') {
     return <section className="workspace-view reveal"><h2>Reports management</h2><button className="ghost-btn" onClick={onCreateReport}><Flag size={16} /> Report create</button><div className="compact-list">{myReports.map((r)=><article key={r.id} className="content-panel"><h3>{r.reason_display || r.reason}</h3><p>Status: {r.status_display || r.status}</p></article>)}</div></section>;
@@ -667,7 +670,7 @@ function AccountSection({ active, user, notifications, favorites, myReviews, myR
     return <section className="workspace-view reveal"><h2>{active}</h2><div className="compact-list">{myReviews.map((r)=><article key={r.id} className="content-panel"><h3>{r.title}</h3><p>Rating: {r.rating}</p><div className="top-actions"><button className="ghost-btn" onClick={()=>onVoteReview(r.id,'like')}>Like</button><button className="ghost-btn" onClick={()=>onVoteReview(r.id,'dislike')}>Dislike</button><button className="ghost-btn" onClick={()=>onOpenReviewDetail(r.id)}>Review detail</button></div></article>)}</div></section>;
   }
   if (active === 'Profile') {
-    return <section className="workspace-view reveal"><h2>Profile view</h2><article className="content-panel"><h3>{user?.username}</h3><p>Email: {user?.email || '—'}</p><p>Role: {user?.role || '—'}</p><p>Phone: {user?.phone_number || '—'}</p><p>First name: {user?.first_name || '—'}</p><p>Last name: {user?.last_name || '—'}</p><p>Bio: {user?.bio || '—'}</p><button className="ghost-btn" onClick={onOpenProfileSettings}>Profile settings</button></article></section>;
+    return <section className="workspace-view reveal"><h2>Profile view</h2><article className="content-panel"><h3>{user?.username}</h3><p>{user?.email}</p><button className="ghost-btn" onClick={onOpenProfileSettings}>Profile settings</button></article></section>;
   }
   return <WorkspaceView active={active} user={user} />;
 }
@@ -863,11 +866,6 @@ function App() {
   const [favorites, setFavorites] = useState([]);
   const [myReviews, setMyReviews] = useState([]);
   const [myReports, setMyReports] = useState([]);
-  const [courseDetail, setCourseDetail] = useState(null);
-  const [courseReviews, setCourseReviews] = useState([]);
-  const [reviewDetail, setReviewDetail] = useState(null);
-  const [reviewComments, setReviewComments] = useState([]);
-  const [commentDraft, setCommentDraft] = useState('');
   const { categories, courses, centers, mentors, tags, loading, error } = usePlatformData({ ...filters, search: query });
 
   useEffect(() => {
@@ -1010,16 +1008,9 @@ function App() {
             myReviews={myReviews}
             myReports={myReports}
             onOpenNotification={async (n) => { await api.getNotificationDetail(n.id).catch(()=>null); await api.markNotificationRead(n.id); setNotifications((prev)=>prev.filter((x)=>x.id!==n.id)); }}
-            onMarkNotificationRead={async (id) => { await api.markNotificationRead(id); setNotifications((prev)=>prev.filter((x)=>x.id!==id)); }}
-            onMarkAllNotificationsRead={async () => { await api.markAllNotificationsRead(); setNotifications([]); }}
             onToggleFavorite={async (courseId) => { await api.toggleFavorite(courseId); setFavorites((prev)=>prev.filter((x)=>(x.id||x.course?.id)!==courseId)); }}
             onVoteReview={async (id, type) => { await api.voteReview(id, type); }}
-            onOpenReviewDetail={async (id) => {
-              const [detail, commentsPayload] = await Promise.all([api.getReview(id), api.getReviewComments(id)]);
-              setReviewDetail(detail);
-              setReviewComments(normalizeList(commentsPayload));
-              setActive('Review detail');
-            }}
+            onOpenReviewDetail={async (id) => { await api.getReview(id); await api.getReviewComments(id); }}
             onOpenProfileSettings={() => setEditProfileOpen(true)}
             onCreateReport={async () => { const firstReview = myReviews[0]; if (!firstReview) return; await api.createReport({ review: firstReview.id, reason: 'spam' }); const list = await api.getMyReports(); setMyReports(normalizeList(list)); }}
           />

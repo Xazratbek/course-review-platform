@@ -32,13 +32,14 @@ function buildQuery(params = {}) {
 }
 
 async function fetchJson(path, options = {}) {
+  const { skipRefresh, ...fetchOptions } = options;
   const response = await fetch(joinUrl(path), {
-    ...options,
+    ...fetchOptions,
     headers: {
       Accept: 'application/json',
-      ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(fetchOptions.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
       ...authHeaders(),
-      ...options.headers,
+      ...fetchOptions.headers,
     },
   });
 
@@ -84,7 +85,7 @@ async function request(path, options = {}) {
 
   if (!response.ok) {
     const message = payload?.detail || payload?.message || 'API request failed';
-    throw new Error(message);
+    throw new Error(typeof message === 'string' ? message : JSON.stringify(message));
   }
 
   return payload;
@@ -108,21 +109,11 @@ export function assetUrl(value) {
 }
 
 export async function login(credentials) {
-  const payload = await request('/accounts/login/', {
-    method: 'POST',
-    body: JSON.stringify(credentials),
-  });
+  const payload = await request('/accounts/login/', { method: 'POST', body: JSON.stringify(credentials) });
   const user = decodeJwt(payload.access) || { username: credentials.username };
   const session = { ...payload, user };
   setSession(session);
-  try {
-    const profile = await request('/accounts/my/profile/');
-    const nextUser = profile?.data || user;
-    setSession({ ...session, user: nextUser });
-    return nextUser;
-  } catch {
-    return user;
-  }
+  return user;
 }
 
 export async function signup(values, options = {}) {
@@ -136,28 +127,15 @@ export async function signup(values, options = {}) {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', joinUrl('/accounts/signup/'));
     xhr.setRequestHeader('Accept', 'application/json');
-
     xhr.upload.onprogress = (event) => {
       if (!onProgress || !event.lengthComputable) return;
-      const percent = Math.round((event.loaded / event.total) * 100);
-      onProgress(percent);
+      onProgress(Math.round((event.loaded / event.total) * 100));
     };
-
     xhr.onload = () => {
-      let result = null;
-      try {
-        result = JSON.parse(xhr.responseText || '{}');
-      } catch {
-        result = null;
-      }
-      if (xhr.status >= 200 && xhr.status < 300) {
-        onProgress?.(100);
-        resolve(result);
-        return;
-      }
+      const result = JSON.parse(xhr.responseText || '{}');
+      if (xhr.status >= 200 && xhr.status < 300) return resolve(result);
       reject(new Error(result?.detail || result?.message || 'Signup failed'));
     };
-
     xhr.onerror = () => reject(new Error('Tarmoq xatosi'));
     xhr.send(formData);
   });
@@ -172,8 +150,7 @@ export function logout() {
 }
 
 export function getStoredUser() {
-  const session = getSession();
-  return session?.user || null;
+  return getSession()?.user || null;
 }
 
 export const api = {
@@ -181,29 +158,22 @@ export const api = {
   getCourses: (params) => request(`/course/${buildQuery(params)}`),
   getCourse: (slug) => request(`/course/${slug}/`),
   getCenters: (params) => request(`/course/centers/${buildQuery(params)}`),
-  getCenter: (slug) => request(`/course/centers/${slug}/`),
   getMentors: (params) => request(`/course/mentors/${buildQuery(params)}`),
-  getMentor: (slug) => request(`/course/mentors/${slug}/`),
   getTags: (params) => request(`/course/tags/${buildQuery(params)}`),
   getProfile: () => request('/accounts/my/profile/'),
   updateProfile: (formData) => request('/accounts/update/', { method: 'PATCH', body: formData }),
+  deleteProfile: () => request('/accounts/delete/', { method: 'DELETE' }),
+  changePassword: (payload) => request('/accounts/password/change/', { method: 'POST', body: JSON.stringify(payload) }),
   getNotifications: () => request('/notifications/'),
-  markNotificationRead: (notification_id) => request('/notifications/mark_one/', { method: 'POST', body: JSON.stringify({ notification_id }) }),
-  markAllNotificationsRead: () => request('/notifications/mark_all/', { method: 'POST' }),
   getFavorites: () => request('/interactions/favorites/my/'),
-  toggleFavorite: (course) => request('/interactions/favorites/toggle/', { method: 'POST', body: JSON.stringify({ course }) }),
   getMyReviews: (params) => request(`/reviews/my/${buildQuery(params)}`),
+  updateReview: (id, payload) => request(`/reviews/update/${id}/`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteReview: (id) => request(`/reviews/delete/${id}/`, { method: 'DELETE' }),
   getReview: (id) => request(`/reviews/${id}/`),
-  getCourseReviews: (slug) => request(`/reviews/by_course/${slug}/`),
   createReview: (payload) => request('/reviews/create/', { method: 'POST', body: JSON.stringify(payload) }),
-  uploadReviewMedia: (payload) => request('/reviews/media/upload/', { method: 'POST', body: payload }),
-  voteReview: (review_id, vote_type) => request('/reviews/vote/', { method: 'POST', body: JSON.stringify({ review_id, vote_type }) }),
-  getReviewComments: (id) => request(`/reviews/comments/by_review/${id}/`),
-  createComment: (payload) => request('/reviews/comments/comment/', { method: 'POST', body: JSON.stringify(payload) }),
-  getCommentReplies: (id) => request(`/reviews/comments/${id}/replies/`),
-  updateComment: (id, payload) => request(`/reviews/comments/${id}/`, { method: 'PATCH', body: JSON.stringify(payload) }),
-  deleteComment: (id) => request(`/reviews/comments/${id}/`, { method: 'DELETE' }),
+  deleteReviewMedia: (id) => request(`/reviews/media/delete/${id}/`, { method: 'DELETE' }),
+  getHistory: () => request('/interactions/course/history/'),
+  getMyActivities: () => request('/interactions/activities/my/'),
   getMyReports: () => request('/moderation/my_reports/'),
   createReport: (payload) => request('/moderation/report/create/', { method: 'POST', body: JSON.stringify(payload) }),
-  getNotificationDetail: (id) => request(`/notifications/${id}/`),
 };

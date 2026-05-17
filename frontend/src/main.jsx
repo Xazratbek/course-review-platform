@@ -51,6 +51,13 @@ const normalizeList = (payload) => {
   return [];
 };
 
+const parseRoute = () => {
+  const parts = window.location.pathname.split('/').filter(Boolean);
+  if (parts[0] === 'centers' && parts[1]) return { type: 'center-detail', slug: parts[1] };
+  if (parts[0] === 'mentors' && parts[1]) return { type: 'mentor-detail', slug: parts[1] };
+  return { type: 'dashboard' };
+};
+
 function VerifiedBadge({ show }) {
   if (!show) return null;
   return (
@@ -218,7 +225,7 @@ function Sidebar({ collapsed, setCollapsed, active, setActive, user, onProfileCl
   );
 }
 
-function Topbar({ draftSearch, setDraftSearch, onSearch, user, onLoginClick, onLogout, unreadCount, onOpenNotifications, onMarkAllRead }) {
+function Topbar({ draftSearch, setDraftSearch, onSearch, user, onLoginClick, onLogout, unreadCount, onOpenNotifications }) {
   return (
     <header className="topbar">
       <div>
@@ -241,7 +248,6 @@ function Topbar({ draftSearch, setDraftSearch, onSearch, user, onLoginClick, onL
           <Bell size={19} />
           {unreadCount > 0 && <span className="notify-dot">{unreadCount}</span>}
         </button>
-        {user && <button className="ghost-btn" onClick={onMarkAllRead}>Barchasi o'qildi</button>}
         <button className="pill-btn" onClick={onLoginClick}>
           {user ? <UserRound size={18} /> : <LogIn size={18} />}
           <span>{user ? user.username : 'Kirish'}</span>
@@ -522,7 +528,7 @@ function DirectoryPanel({ centers, mentors, tags }) {
   );
 }
 
-function ExploreSection({ active, courses, categories, centers, mentors, tags, loading, selectedCourse, setSelectedId, filters, setFilters, setDraftSearch, setQuery, onReview }) {
+function ExploreSection({ active, courses, categories, centers, mentors, tags, loading, selectedCourse, setSelectedId, filters, setFilters, setDraftSearch, setQuery, onReview, onOpenEntity }) {
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
@@ -567,6 +573,12 @@ function ExploreSection({ active, courses, categories, centers, mentors, tags, l
   const titleKey = active === 'Mentors' ? 'full_name' : 'title';
   const handleDetail = async (item) => {
     if (!(active === 'Centers' || active === 'Mentors') || !item.slug) return;
+    onOpenEntity?.(active === 'Centers' ? 'center' : 'mentor', item.slug);
+    return;
+  };
+
+  const handleInlineDetail = async (item) => {
+    if (!(active === 'Centers' || active === 'Mentors') || !item.slug) return;
     setDetailLoading(true);
     setDetailError('');
     try {
@@ -596,7 +608,7 @@ function ExploreSection({ active, courses, categories, centers, mentors, tags, l
       </div>
       {detailLoading && <div className="loading-line"><Loader2 className="spin" size={18} /> Detail yuklanmoqda</div>}
       {detailError && <div className="form-error">{detailError}</div>}
-      {selectedDetail && (
+      {selectedDetail && active === 'Tags' && (
         <section className="detail-card reveal">
           <h3>{selectedDetail.title || selectedDetail.full_name}</h3>
           <p>{selectedDetail.description || selectedDetail.bio || selectedDetail.website || 'Detail topilmadi'}</p>
@@ -641,25 +653,53 @@ function WorkspaceView({ active, user, onEditProfile, onLogout, onReview }) {
 }
 
 
-function AccountSection({ active, user, notifications, favorites, myReviews, onOpenNotification, onToggleFavorite, onVoteReview }) {
+function AccountSection({ active, user, notifications, favorites, myReviews, myReports, onOpenNotification, onToggleFavorite, onVoteReview, onOpenReviewDetail, onOpenProfileSettings, onCreateReport, onMarkNotificationRead, onMarkAllNotificationsRead }) {
   if (active === 'Notifications') {
-    return <section className="workspace-view reveal"><h2>Notifications</h2><div className="compact-list">{notifications.map((n)=><button key={n.id} className="course-row" onClick={()=>onOpenNotification(n)}><strong>{n.title}</strong><span>{n.notification_type_display}</span></button>)}</div></section>;
+    return <section className="workspace-view reveal"><div className="workspace-header"><h2>Notifications</h2><button className="ghost-btn" onClick={onMarkAllNotificationsRead}>Barchasini o‘qildi qilish</button></div><div className="compact-list">{notifications.map((n)=><article key={n.id} className="content-panel"><button className="course-row" onClick={()=>onOpenNotification(n)}><strong>{n.title}</strong><span>{n.notification_type_display}</span></button><button className="ghost-btn" onClick={()=>onMarkNotificationRead(n.id)}><CheckCircle2 size={16} /> O‘qildi</button></article>)}</div></section>;
+  }
+  if (active === 'Reports') {
+    return <section className="workspace-view reveal"><h2>Reports management</h2><button className="ghost-btn" onClick={onCreateReport}><Flag size={16} /> Report create</button><div className="compact-list">{myReports.map((r)=><article key={r.id} className="content-panel"><h3>{r.reason_display || r.reason}</h3><p>Status: {r.status_display || r.status}</p></article>)}</div></section>;
   }
   if (active === 'Favorites') {
     return <section className="workspace-view reveal"><h2>Favorites</h2><div className="compact-list">{favorites.map((f)=><article key={f.id} className="content-panel"><h3>{f.title || f.course?.title || 'Course'}</h3><button className="ghost-btn" onClick={()=>onToggleFavorite(f.id || f.course?.id)}>Remove</button></article>)}</div></section>;
   }
-  if (active === 'My reviews' || active === 'Votes' || active === 'Reports') {
-    return <section className="workspace-view reveal"><h2>{active}</h2><div className="compact-list">{myReviews.map((r)=><article key={r.id} className="content-panel"><h3>{r.title}</h3><p>Rating: {r.rating}</p><div className="top-actions"><button className="ghost-btn" onClick={()=>onVoteReview(r.id,'like')}>Like</button><button className="ghost-btn" onClick={()=>onVoteReview(r.id,'dislike')}>Dislike</button></div></article>)}</div></section>;
+  if (active === 'My reviews' || active === 'Votes') {
+    return <section className="workspace-view reveal"><h2>{active}</h2><div className="compact-list">{myReviews.map((r)=><article key={r.id} className="content-panel"><h3>{r.title}</h3><p>Rating: {r.rating}</p><div className="top-actions"><button className="ghost-btn" onClick={()=>onVoteReview(r.id,'like')}>Like</button><button className="ghost-btn" onClick={()=>onVoteReview(r.id,'dislike')}>Dislike</button><button className="ghost-btn" onClick={()=>onOpenReviewDetail(r.id)}>Review detail</button></div></article>)}</div></section>;
+  }
+  if (active === 'Profile') {
+    return <section className="workspace-view reveal"><h2>Profile view</h2><article className="content-panel"><h3>{user?.username}</h3><p>Email: {user?.email || '—'}</p><p>Role: {user?.role || '—'}</p><p>Phone: {user?.phone_number || '—'}</p><p>First name: {user?.first_name || '—'}</p><p>Last name: {user?.last_name || '—'}</p><p>Bio: {user?.bio || '—'}</p><button className="ghost-btn" onClick={onOpenProfileSettings}>Profile settings</button></article></section>;
   }
   return <WorkspaceView active={active} user={user} />;
 }
 
 function ReviewModal({ open, onClose, course }) {
   const [rating, setRating] = useState(0);
+  const [form, setForm] = useState({ title: '', advantages: '', disadvantages: '', body: '' });
+  const [mediaFiles, setMediaFiles] = useState([]);
+  const [status, setStatus] = useState({ loading: false, error: '' });
   if (!open) return null;
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!course?.id) return;
+    setStatus({ loading: true, error: '' });
+    try {
+      const created = await api.createReview({ ...form, rating, course: course.id });
+      const reviewId = created?.id || created?.data?.id;
+      if (reviewId && mediaFiles.length > 0) {
+        const fd = new FormData();
+        fd.append('review', reviewId);
+        mediaFiles.forEach((file) => fd.append('images', file));
+        await api.uploadReviewMedia(fd);
+      }
+      onClose();
+    } catch (error) {
+      setStatus({ loading: false, error: error.message });
+    }
+  };
   return (
     <div className="modal-backdrop">
-      <form className="review-modal">
+      <form className="review-modal" onSubmit={submit}>
         <button className="modal-close" type="button" onClick={onClose} aria-label="Yopish"><X size={18} /></button>
         <div>
           <p className="crumbs">{course?.title || 'Course'}</p>
@@ -675,16 +715,15 @@ function ReviewModal({ open, onClose, course }) {
               ))}
             </div>
           </label>
-          <label>Title <input placeholder="Qisqa sarlavha" /></label>
-          <label>Afzalliklar <textarea placeholder="Nima yaxshi?" /></label>
-          <label>Kamchiliklar <textarea placeholder="Nima yetishmadi?" /></label>
-          <label className="wide">Sharh <textarea placeholder="To‘liq fikringiz" /></label>
-          <label>Media <input type="file" /></label>
+          <label>Title <input placeholder="Qisqa sarlavha" value={form.title} onChange={(e)=>setForm({...form, title:e.target.value})} /></label>
+          <label>Afzalliklar <textarea placeholder="Nima yaxshi?" value={form.advantages} onChange={(e)=>setForm({...form, advantages:e.target.value})} /></label>
+          <label>Kamchiliklar <textarea placeholder="Nima yetishmadi?" value={form.disadvantages} onChange={(e)=>setForm({...form, disadvantages:e.target.value})} /></label>
+          <label className="wide">Sharh <textarea placeholder="To‘liq fikringiz" value={form.body} onChange={(e)=>setForm({...form, body:e.target.value})} /></label>
+          <label>Media <input type="file" multiple onChange={(e)=>setMediaFiles(Array.from(e.target.files || []))} /></label>
         </div>
         <div className="composer-actions">
-          <button type="button"><Upload size={16} /> Media</button>
-          <button type="button"><Send size={16} /> Yuborish</button>
-          <button type="button"><Flag size={16} /> Report</button>
+          {status.error && <div className="form-error">{status.error}</div>}
+          <button type="submit" disabled={status.loading}><Send size={16} /> Yuborish</button>
         </div>
       </form>
     </div>
@@ -812,6 +851,10 @@ function App() {
   const [draftSearch, setDraftSearch] = useState('');
   const [filters, setFilters] = useState({ level: '', language: '', certificate: '', category: '' });
   const [selectedId, setSelectedId] = useState(null);
+  const [route, setRoute] = useState(parseRoute());
+  const [entityDetail, setEntityDetail] = useState(null);
+  const [entityLoading, setEntityLoading] = useState(false);
+  const [entityError, setEntityError] = useState('');
   const [loginOpen, setLoginOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
@@ -819,27 +862,75 @@ function App() {
   const [notifications, setNotifications] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [myReviews, setMyReviews] = useState([]);
+  const [myReports, setMyReports] = useState([]);
+  const [courseDetail, setCourseDetail] = useState(null);
+  const [courseReviews, setCourseReviews] = useState([]);
+  const [reviewDetail, setReviewDetail] = useState(null);
+  const [reviewComments, setReviewComments] = useState([]);
+  const [commentDraft, setCommentDraft] = useState('');
   const { categories, courses, centers, mentors, tags, loading, error } = usePlatformData({ ...filters, search: query });
 
   useEffect(() => {
+    const onPop = () => setRoute(parseRoute());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  useEffect(() => {
     if (!user) return;
-    Promise.allSettled([api.getProfile(), api.getNotifications(), api.getFavorites(), api.getMyReviews()]).then((items)=>{
-      const [profile, nt, fav, reviews] = items;
+    Promise.allSettled([api.getProfile(), api.getNotifications(), api.getFavorites(), api.getMyReviews(), api.getMyReports()]).then((items)=>{
+      const [profile, nt, fav, reviews, reports] = items;
       if (profile.status==='fulfilled') setUser(profile.value?.data || user);
       if (nt.status==='fulfilled') setNotifications(normalizeList(nt.value));
       if (fav.status==='fulfilled') setFavorites(normalizeList(fav.value));
       if (reviews.status==='fulfilled') setMyReviews(normalizeList(reviews.value));
+      if (reports.status==='fulfilled') setMyReports(normalizeList(reports.value));
     }).catch(()=>{});
     api.getProfile()
       .then((payload) => setUser(payload?.data || user))
       .catch(() => setUser(getStoredUser()));
   }, []);
 
+  useEffect(() => {
+    const load = async () => {
+      if (route.type === 'center-detail') {
+        setEntityLoading(true); setEntityError('');
+        try { setEntityDetail(await api.getCenter(route.slug)); } catch (e) { setEntityError(e.message); }
+        finally { setEntityLoading(false); }
+      } else if (route.type === 'mentor-detail') {
+        setEntityLoading(true); setEntityError('');
+        try { setEntityDetail(await api.getMentor(route.slug)); } catch (e) { setEntityError(e.message); }
+        finally { setEntityLoading(false); }
+      } else {
+        setEntityDetail(null);
+      }
+    };
+    load();
+  }, [route]);
+
+  useEffect(() => {
+    const loadCourseDetail = async () => {
+      if (!selectedCourse?.slug) return;
+      try {
+        const [detail, reviewsPayload] = await Promise.all([
+          api.getCourse(selectedCourse.slug),
+          api.getCourseReviews(selectedCourse.slug),
+        ]);
+        setCourseDetail(detail);
+        setCourseReviews(normalizeList(reviewsPayload));
+      } catch {
+        setCourseDetail(selectedCourse);
+        setCourseReviews([]);
+      }
+    };
+    loadCourseDetail();
+  }, [selectedCourse?.slug]);
+
   const selectedCourse = useMemo(() => {
     return courses.find((course) => course.id === selectedId) || courses[0] || null;
   }, [courses, selectedId]);
 
-  const isExplore = ['Courses', 'Centers', 'Mentors', 'Tags'].includes(active);
+  const isExplore = ['Courses', 'Centers', 'Mentors', 'Tags'].includes(active) && route.type === 'dashboard';
 
   const handleLogout = () => {
     logout();
@@ -873,7 +964,6 @@ function App() {
           onLogout={handleLogout}
           unreadCount={notifications.length}
           onOpenNotifications={() => setActive('Notifications')}
-          onMarkAllRead={async () => { if(!user) return; await api.markAllNotificationsRead(); setNotifications([]); }}
         />
         {error && <div className="api-alert">{error}</div>}
 
@@ -886,14 +976,31 @@ function App() {
             mentors={mentors}
             tags={tags}
             loading={loading}
-            selectedCourse={selectedCourse}
+            selectedCourse={courseDetail || selectedCourse}
             setSelectedId={setSelectedId}
             filters={filters}
             setFilters={setFilters}
             setDraftSearch={setDraftSearch}
             setQuery={setQuery}
             onReview={() => setReviewOpen(true)}
+            onOpenEntity={(type, slug) => {
+              const path = type === 'center' ? `/centers/${slug}/` : `/mentors/${slug}/`;
+              window.history.pushState({}, '', path);
+              setRoute(parseRoute());
+            }}
           />
+        ) : route.type !== 'dashboard' ? (
+          <section className="workspace-view reveal">
+            <button className="ghost-btn" onClick={() => { window.history.pushState({}, '', '/'); setRoute(parseRoute()); setActive(route.type === 'center-detail' ? 'Centers' : 'Mentors'); }}>← Orqaga</button>
+            {entityLoading && <div className="loading-line"><Loader2 className="spin" size={18} /> Detail yuklanmoqda</div>}
+            {entityError && <div className="form-error">{entityError}</div>}
+            {entityDetail && (
+              <article className="detail-card reveal">
+                <h2>{entityDetail.title || entityDetail.full_name}</h2>
+                <p>{entityDetail.description || entityDetail.bio || entityDetail.website || 'Detail topilmadi'}</p>
+              </article>
+            )}
+          </section>
         ) : (
           <AccountSection
             active={active}
@@ -901,10 +1008,51 @@ function App() {
             notifications={notifications}
             favorites={favorites}
             myReviews={myReviews}
-            onOpenNotification={async (n) => { await api.markNotificationRead(n.id); setNotifications((prev)=>prev.filter((x)=>x.id!==n.id)); }}
+            myReports={myReports}
+            onOpenNotification={async (n) => { await api.getNotificationDetail(n.id).catch(()=>null); await api.markNotificationRead(n.id); setNotifications((prev)=>prev.filter((x)=>x.id!==n.id)); }}
+            onMarkNotificationRead={async (id) => { await api.markNotificationRead(id); setNotifications((prev)=>prev.filter((x)=>x.id!==id)); }}
+            onMarkAllNotificationsRead={async () => { await api.markAllNotificationsRead(); setNotifications([]); }}
             onToggleFavorite={async (courseId) => { await api.toggleFavorite(courseId); setFavorites((prev)=>prev.filter((x)=>(x.id||x.course?.id)!==courseId)); }}
             onVoteReview={async (id, type) => { await api.voteReview(id, type); }}
+            onOpenReviewDetail={async (id) => {
+              const [detail, commentsPayload] = await Promise.all([api.getReview(id), api.getReviewComments(id)]);
+              setReviewDetail(detail);
+              setReviewComments(normalizeList(commentsPayload));
+              setActive('Review detail');
+            }}
+            onOpenProfileSettings={() => setEditProfileOpen(true)}
+            onCreateReport={async () => { const firstReview = myReviews[0]; if (!firstReview) return; await api.createReport({ review: firstReview.id, reason: 'spam' }); const list = await api.getMyReports(); setMyReports(normalizeList(list)); }}
           />
+        )}
+        {active === 'Review detail' && reviewDetail && (
+          <section className="workspace-view reveal">
+            <div className="workspace-header">
+              <h2>Review detail</h2>
+              <button className="ghost-btn" onClick={() => setActive('My reviews')}>Orqaga</button>
+            </div>
+            <article className="content-panel">
+              <h3>{reviewDetail.title}</h3>
+              <p>{reviewDetail.body}</p>
+              <p>Rating: {reviewDetail.rating}</p>
+            </article>
+            <h3>Comments</h3>
+            <div className="compact-list">
+              {reviewComments.map((c) => (
+                <article key={c.id} className="content-panel">
+                  <strong>{c.user_username}</strong>
+                  <p>{c.body}</p>
+                  <div className="top-actions">
+                    <button className="ghost-btn" onClick={async () => { await api.updateComment(c.id, { body: `${c.body} (edited)` }); const refreshed = await api.getReviewComments(reviewDetail.id); setReviewComments(normalizeList(refreshed)); }}>Edit</button>
+                    <button className="ghost-btn" onClick={async () => { await api.deleteComment(c.id); setReviewComments((prev) => prev.filter((x) => x.id !== c.id)); }}>Delete</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <form onSubmit={async (e) => { e.preventDefault(); if (!commentDraft.trim()) return; await api.createComment({ review: reviewDetail.id, body: commentDraft }); const refreshed = await api.getReviewComments(reviewDetail.id); setReviewComments(normalizeList(refreshed)); setCommentDraft(''); }}>
+              <input value={commentDraft} onChange={(e) => setCommentDraft(e.target.value)} placeholder="Comment yozing" />
+              <button type="submit" className="ghost-btn">Yuborish</button>
+            </form>
+          </section>
         )}
       </main>
       <ReviewModal open={reviewOpen} onClose={() => setReviewOpen(false)} course={selectedCourse} />

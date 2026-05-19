@@ -80,7 +80,7 @@ class ReviewCreateView(CreateAPIView):
 
     def perform_create(self, serializer):
         review = serializer.save(user=self.request.user)
-        metadata = {"activity_type":"review create","review_id": str(review.id),"time":timezone.now()}
+        metadata = {"activity_type":"review create","review_id": str(review.id)}
 
         UserActivity.write_activity(user=self.request.user,activity_type='review',metadata=metadata)
         return review

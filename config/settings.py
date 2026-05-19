@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'django_filters',
     'rest_framework',
     'storages',
+    'drf_spectacular',
 
     #My apps
     'users',
@@ -120,7 +121,8 @@ STATIC_URL = 'static/'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+    ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 SUPABASE_PROJECT_ID = env('SUPABASE_PROJECT_ID')
@@ -161,4 +163,11 @@ SIMPLE_JWT = {
     "UPDATE_LAST_LOGIN": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
     "TOKEN_OBTAIN_SERIALIZER": "users.serializers.MyTokenObtainPairSerializer",
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Course Review Platform',
+    'DESCRIPTION': 'Kurslarga sharx qoldirish platformasi',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
 }
